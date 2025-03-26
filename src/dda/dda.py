@@ -1,9 +1,9 @@
 import subprocess
 from pathlib import Path
+
 import numpy as np
 
 from .utils import create_tempfile, make_dda_command
-
 
 DDA_BINARY_PATH = None
 
