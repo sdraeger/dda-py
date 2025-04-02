@@ -1,0 +1,15 @@
+[project]
+name = "dda-py"
+version = "0.1.0"
+description = "Python wrapper for Delay Differential Analysis"
+authors = [{ name = "Simon Draeger", email = "sdraeger@salk.edu" }]
+license = "MIT"
+readme = "README.md"
+requires-python = ">=3.6"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = ["pytest>=7.0"]
