@@ -8,7 +8,7 @@ Install the package from PyPI:
 pip install dda-py
 ```
 
-Download the DDA binary from [here](https://github.com/dda-py/dda-py/releases) and put it in the root directory of the
+Download the appropriate DDA binary from [here](https://github.com/dda-py/dda-py/releases) (select the correct one for your platform) and place it in the root directory of the
 project.
 Define the path to the binary in the `dda_binary_path` variable in the `init` function.
 
