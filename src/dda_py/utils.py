@@ -15,7 +15,7 @@ BASE_PARAMS = {
 }
 
 
-def create_tempfile(subdir: str, **kwargs):
+def create_tempfile(subdir: str | None = None, **kwargs):
     """
     Create a temporary file in the dda directory.
 
@@ -26,7 +26,11 @@ def create_tempfile(subdir: str, **kwargs):
     Returns:
         tempfile.NamedTemporaryFile: The created temporary file.
     """
-    d = Path(tempfile.gettempdir()) / ".dda" / subdir
+    d = Path(tempfile.gettempdir()) / ".dda"
+
+    if subdir is not None:
+        d = d / subdir
+
     d.mkdir(parents=True, exist_ok=True)
     tempf = tempfile.NamedTemporaryFile(dir=d, delete=False, **kwargs)
     return tempf
