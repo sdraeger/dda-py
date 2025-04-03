@@ -1,4 +1,4 @@
-# DDA: Python Wrapper for Delay Differential Analysis
+# `dda-py`: Python Wrapper for Delay Differential Analysis
 
 ## Installation
 
