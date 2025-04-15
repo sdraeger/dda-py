@@ -1,6 +1,6 @@
 [project]
 name = "dda-py"
-version = "0.1.1"
+version = "0.1.2"
 description = "Python wrapper for Delay Differential Analysis"
 authors = [{ name = "Simon Draeger", email = "sdraeger@salk.edu" }]
 license = "MIT"
