@@ -21,7 +21,6 @@ class TestDDARunner(unittest.TestCase):
         self.bounds = (10, 20)
         dda_py.DDA_BINARY_PATH = None
 
-
     # --- Init and Setup Tests ---
     def test_init_raises_error_if_dda_binary_not_found(self):
         """Test that init raises FileNotFoundError for a non-existent binary path."""
@@ -66,19 +65,49 @@ class TestDDARunner(unittest.TestCase):
         # Assert the result is a Path object starting with the expected directory
         expected_prefix = str(Path(tempfile.gettempdir()) / ".dda" / "test")
         self.assertTrue(str(result).startswith(expected_prefix))
-        mock_tempfile.assert_called_once_with(dir=Path(tempfile.gettempdir()) / ".dda" / "test", delete=False)
+        mock_tempfile.assert_called_once_with(
+            dir=Path(tempfile.gettempdir()) / ".dda" / "test", delete=False
+        )
 
     def test_make_command_basic(self):
         """Test _make_command constructs a basic command correctly."""
 
         init(self.dda_binary_path)
 
-        command = DDARunner._make_command(self.input_file, self.output_file, self.channels_indices)
+        command = DDARunner._make_command(
+            self.input_file, self.output_file, self.channels_indices
+        )
         expected = [
-            self.dda_binary_path, "-DATA_FN", self.input_file, "-OUT_FN", self.output_file,
-            "-EDF", "-CH_list", *self.channels_indices,
-            "-dm", "4", "-order", "4", "-nr_tau", "2", "-WL", "125", "-WS", "62",
-            "-SELECT", "1", "0", "0", "0", "-MODEL", "1", "2", "10", "-TAU", "7", "10"
+            self.dda_binary_path,
+            "-DATA_FN",
+            self.input_file,
+            "-OUT_FN",
+            self.output_file,
+            "-EDF",
+            "-CH_list",
+            *self.channels_indices,
+            "-dm",
+            "4",
+            "-order",
+            "4",
+            "-nr_tau",
+            "2",
+            "-WL",
+            "125",
+            "-WS",
+            "62",
+            "-SELECT",
+            "1",
+            "0",
+            "0",
+            "0",
+            "-MODEL",
+            "1",
+            "2",
+            "10",
+            "-TAU",
+            "7",
+            "10",
         ]
 
         self.assertEqual(command, expected)
@@ -88,7 +117,9 @@ class TestDDARunner(unittest.TestCase):
 
         init(self.dda_binary_path)
 
-        command = DDARunner._make_command(self.input_file, self.output_file, self.channels_indices, self.bounds, True)
+        command = DDARunner._make_command(
+            self.input_file, self.output_file, self.channels_indices, self.bounds, True
+        )
         self.assertIn("-StartEnd", command)
         self.assertIn("10", command)
         self.assertIn("20", command)
@@ -116,8 +147,12 @@ class TestDDARunner(unittest.TestCase):
         """Test run creates an output file when none is provided."""
 
         mock_subprocess_run.return_value = MagicMock(returncode=0)
-        with patch.object(DDARunner, "_process_output", return_value=(np.array([]), Path("test_ST"))):
-            with patch.object(DDARunner, "_create_tempfile", return_value=Path("temp_output")):
+        with patch.object(
+            DDARunner, "_process_output", return_value=(np.array([]), Path("test_ST"))
+        ):
+            with patch.object(
+                DDARunner, "_create_tempfile", return_value=Path("temp_output")
+            ):
                 runner = DDARunner(self.dda_binary_path)
                 _, st_path = runner.run(self.input_file, None, self.channels_indices)
                 self.assertEqual(st_path, Path("test_ST"))
@@ -137,15 +172,24 @@ class TestDDARunner(unittest.TestCase):
         """Helper to test run_async creates an output file when none is provided."""
 
         mock_process = MagicMock()
-        async def wait_mock(): pass
+
+        async def wait_mock():
+            pass
+
         mock_process.wait = wait_mock
         mock_process.returncode = 0
         mock_subprocess_exec.return_value = mock_process
 
-        with patch.object(DDARunner, "_process_output", return_value=(np.array([]), Path("test_ST"))):
-            with patch.object(DDARunner, "_create_tempfile", return_value=Path("temp_output")):
+        with patch.object(
+            DDARunner, "_process_output", return_value=(np.array([]), Path("test_ST"))
+        ):
+            with patch.object(
+                DDARunner, "_create_tempfile", return_value=Path("temp_output")
+            ):
                 runner = DDARunner(self.dda_binary_path)
-                _, st_path = await runner.run_async(self.input_file, None, self.channels_indices)
+                _, st_path = await runner.run_async(
+                    self.input_file, None, self.channels_indices
+                )
                 self.assertEqual(st_path, Path("test_ST"))
                 mock_subprocess_exec.assert_called_once()
 
@@ -154,8 +198,13 @@ class TestDDARunner(unittest.TestCase):
         """Helper to test run_async raises an error if subprocess fails."""
 
         mock_process = MagicMock()
-        async def wait_mock(): pass
-        async def read_mock(): return b"error"
+
+        async def wait_mock():
+            pass
+
+        async def read_mock():
+            return b"error"
+
         mock_process.wait = wait_mock
         mock_process.stderr.read = read_mock
         mock_process.returncode = 1
@@ -163,15 +212,24 @@ class TestDDARunner(unittest.TestCase):
         runner = DDARunner(self.dda_binary_path)
 
         with self.assertRaises(subprocess.CalledProcessError):
-            await runner.run_async(self.input_file, self.output_file, self.channels_indices)
+            await runner.run_async(
+                self.input_file,
+                self.output_file,
+                self.channels_indices,
+                raise_on_error=True,
+            )
 
     async def run_dda_async_wrapper(self):
         """Helper to test run_dda_async wrapper works with initialized binary path."""
 
         init(self.dda_binary_path)
-        
-        with patch.object(DDARunner, "run_async", return_value=(np.array([]), Path("test_ST"))):
-            _, st_path = await run_dda_async(self.input_file, None, self.channels_indices)
+
+        with patch.object(
+            DDARunner, "run_async", return_value=(np.array([]), Path("test_ST"))
+        ):
+            _, st_path = await run_dda_async(
+                self.input_file, None, self.channels_indices
+            )
             self.assertEqual(st_path, Path("test_ST"))
 
     def test_async_methods(self):
@@ -186,7 +244,9 @@ class TestDDARunner(unittest.TestCase):
 
         init(self.dda_binary_path)
 
-        with patch.object(DDARunner, "run", return_value=(np.array([]), Path("test_ST"))):
+        with patch.object(
+            DDARunner, "run", return_value=(np.array([]), Path("test_ST"))
+        ):
             _, st_path = run_dda(self.input_file, None, self.channels_indices)
             self.assertEqual(st_path, Path("test_ST"))
 

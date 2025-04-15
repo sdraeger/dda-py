@@ -29,7 +29,7 @@ def init(dda_binary_path: str) -> str:
 
     if not Path(dda_binary_path).exists():
         raise FileNotFoundError(f"DDA binary not found at {dda_binary_path}")
-    
+
     global DDA_BINARY_PATH
     DDA_BINARY_PATH = dda_binary_path
     print(f"Set DDA_BINARY_PATH to {DDA_BINARY_PATH}")
@@ -42,7 +42,9 @@ class DDARunner:
 
     def __init__(self, binary_path: str = DDA_BINARY_PATH):
         if not binary_path:
-            raise ValueError("DDA binary path must be initialized via init() or provided.")
+            raise ValueError(
+                "DDA binary path must be initialized via init() or provided."
+            )
         self.binary_path = binary_path
 
     @staticmethod
@@ -67,10 +69,13 @@ class DDARunner:
 
         command = [
             DDA_BINARY_PATH,
-            "-DATA_FN", input_file,
-            "-OUT_FN", output_file,
+            "-DATA_FN",
+            input_file,
+            "-OUT_FN",
+            output_file,
             "-EDF",
-            "-CH_list", *channel_list,
+            "-CH_list",
+            *channel_list,
         ]
 
         for flag, value in BASE_PARAMS.items():
@@ -95,40 +100,72 @@ class DDARunner:
         return np.loadtxt(st_path), st_path
 
     def _prepare_execution(
-        self, input_file: str, output_file: Optional[str], channel_list: List[str],
-        bounds: Optional[Tuple[int, int]], cpu_time: bool
+        self,
+        input_file: str,
+        output_file: Optional[str],
+        channel_list: List[str],
+        bounds: Optional[Tuple[int, int]],
+        cpu_time: bool,
     ) -> Tuple[List[str], Path]:
         """Prepare command and output path for execution."""
 
         output_path = Path(output_file) if output_file else self._create_tempfile()
-        command = self._make_command(input_file, str(output_path), channel_list, bounds, cpu_time)
+        command = self._make_command(
+            input_file, str(output_path), channel_list, bounds, cpu_time
+        )
 
         return command, output_path
 
-    def run(self, input_file: str, output_file: Optional[str] = None, channel_list: List[str] = [],
-            bounds: Optional[Tuple[int, int]] = None, cpu_time: bool = False) -> Tuple[np.ndarray, Path]:
+    def run(
+        self,
+        input_file: str,
+        output_file: Optional[str] = None,
+        channel_list: List[str] = [],
+        bounds: Optional[Tuple[int, int]] = None,
+        cpu_time: bool = False,
+        raise_on_error: bool = False,
+    ) -> Tuple[np.ndarray, Path]:
         """Run DDA synchronously."""
 
-        command, output_path = self._prepare_execution(input_file, output_file, channel_list, bounds, cpu_time)
-        subprocess.run(command)
+        command, output_path = self._prepare_execution(
+            input_file, output_file, channel_list, bounds, cpu_time
+        )
+        process = subprocess.run(command)
+
+        if raise_on_error and process.returncode != 0:
+            stderr = process.stderr if process.stderr else b""
+            raise subprocess.CalledProcessError(
+                process.returncode, command, stderr.decode()
+            )
 
         return self._process_output(output_path)
 
-    async def run_async(self, input_file: str, output_file: Optional[str] = None, channel_list: List[str] = [],
-                        bounds: Optional[Tuple[int, int]] = None, cpu_time: bool = False) -> Tuple[np.ndarray, Path]:
+    async def run_async(
+        self,
+        input_file: str,
+        output_file: Optional[str] = None,
+        channel_list: List[str] = [],
+        bounds: Optional[Tuple[int, int]] = None,
+        cpu_time: bool = False,
+        raise_on_error: bool = False,
+    ) -> Tuple[np.ndarray, Path]:
         """Run DDA asynchronously."""
 
-        command, output_path = self._prepare_execution(input_file, output_file, channel_list, bounds, cpu_time)
+        command, output_path = self._prepare_execution(
+            input_file, output_file, channel_list, bounds, cpu_time
+        )
         process = await asyncio.create_subprocess_exec(
             *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
 
         await process.wait()
 
-        if process.returncode != 0:
+        if raise_on_error and process.returncode != 0:
             stderr = await process.stderr.read()
-            raise subprocess.CalledProcessError(process.returncode, command, stderr.decode())
-        
+            raise subprocess.CalledProcessError(
+                process.returncode, command, stderr.decode()
+            )
+
         return self._process_output(output_path)
 
 
