@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="dda-py",
-    version="0.1.3",
+    version="0.1.4",
     author="Simon Draeger",
     author_email="sdraeger@salk.edu",
     description="A Python wrapper for the DDA software",

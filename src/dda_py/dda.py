@@ -75,7 +75,7 @@ class DDARunner:
             output_file,
             "-EDF",
             "-CH_list",
-            *channel_list,
+            *list(map(str, channel_list)),
         ]
 
         for flag, value in BASE_PARAMS.items():
