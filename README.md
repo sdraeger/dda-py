@@ -1,5 +1,14 @@
 # `dda-py`: Python Wrapper for Delay Differential Analysis
 
+A Python wrapper for DDA with native support for APE (Actually Portable Executable) binaries, enabling cross-platform execution without platform-specific binaries.
+
+## Features
+
+- **APE Binary Support**: Native support for Actually Portable Executable binaries
+- **Cross-Platform**: Works on Windows, macOS, and Linux with the same APE binary
+- **Async Support**: Both synchronous and asynchronous execution
+- **Easy Integration**: Simple Python API for DDA analysis
+
 ## Installation
 
 Install the package from PyPI:
@@ -8,20 +17,72 @@ Install the package from PyPI:
 pip install dda-py
 ```
 
-Download the appropriate DDA binary from [here](https://github.com/dda-py/dda-py/releases) (select the correct one for your platform) and place it in the root directory of the
-project.
-Define the path to the binary in the `dda_binary_path` variable in the `init` function.
-
 ## Usage
 
+### Basic Usage
+
 ```python
-from dda_py import dda
+import dda_py
 
-dda.init(dda_binary_path="path/to/dda")
+# Initialize with APE binary path
+dda_py.init("./run_DDA_AsciiEdf")
 
-Q = dda.run_dda(
-    input_file="path/to/input/file",
-    output_file="path/to/output/file",
-    channel_list=[1, 2, 3],
+# Run DDA analysis
+Q, output_path = dda_py.run_dda(
+    input_file="data.edf",
+    channel_list=["1", "2", "3"]
+)
+
+print(f"Result shape: {Q.shape}")  # channels × time windows
+```
+
+### Using DDARunner Class
+
+```python
+from dda_py import DDARunner
+
+# Create runner instance
+runner = DDARunner("./run_DDA_AsciiEdf")
+
+# Run analysis with options
+Q, output_path = runner.run(
+    input_file="data.edf",
+    channel_list=["1", "2", "3"],
+    bounds=(1000, 5000),  # Optional time bounds
+    cpu_time=True         # Enable CPU timing
 )
 ```
+
+### Async Usage
+
+```python
+import asyncio
+from dda_py import DDARunner
+
+async def analyze_data():
+    runner = DDARunner("./run_DDA_AsciiEdf")
+    Q, output_path = await runner.run_async(
+        input_file="data.edf",
+        channel_list=["1", "2", "3"]
+    )
+    return Q
+
+# Run async
+result = asyncio.run(analyze_data())
+```
+
+## APE Binary Support
+
+This package is designed to work with APE (Actually Portable Executable) binaries. APE binaries:
+
+- Run on Windows, macOS, and Linux without modification
+- No need for platform-specific binaries
+- Automatic platform detection and execution
+
+The package automatically handles APE binary execution across different platforms using the appropriate shell interpreter when needed.
+
+## Requirements
+
+- Python 3.6+
+- NumPy >= 1.19.0
+- DDA APE binary (place in your working directory)

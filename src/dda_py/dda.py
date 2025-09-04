@@ -1,5 +1,7 @@
 from typing import List, Tuple, Optional, Dict, Union
 import subprocess
+import platform
+import os
 from pathlib import Path
 import asyncio
 import tempfile
@@ -57,26 +59,49 @@ class DDARunner:
 
         return Path(tempf.name)
 
-    @staticmethod
+    def _get_ape_command(self, binary_path: str) -> List[str]:
+        """Get the proper command to execute an APE binary."""
+        # On macOS and Unix, APE binaries need to be executed through sh
+        system = platform.system()
+
+        if system == "Darwin":  # macOS
+            # On macOS, APE binaries need to be executed through sh
+            return ["sh", binary_path]
+        elif system == "Linux":
+            # On Linux, APE binaries can usually run directly, but sh works too
+            return [binary_path]
+        elif system == "Windows":
+            # On Windows, APE binaries run directly
+            return [binary_path]
+        else:
+            # Default to using sh for safety
+            return ["sh", binary_path]
+
     def _make_command(
+        self,
         input_file: str,
         output_file: str,
-        channel_list: List[str],
+        channel_list: List[int],
         bounds: Optional[Tuple[int, int]] = None,
         cpu_time: bool = False,
     ) -> List[str]:
         """Construct a command list for DDA execution."""
 
-        command = [
-            DDA_BINARY_PATH,
-            "-DATA_FN",
-            input_file,
-            "-OUT_FN",
-            output_file,
-            "-EDF",
-            "-CH_list",
-            *list(map(str, channel_list)),
-        ]
+        # Get the proper command prefix for APE execution
+        command = self._get_ape_command(self.binary_path)
+
+        # Add DDA-specific arguments
+        command.extend(
+            [
+                "-DATA_FN",
+                input_file,
+                "-OUT_FN",
+                output_file,
+                "-EDF",
+                "-CH_list",
+                *[str(ch) for ch in channel_list],
+            ]
+        )
 
         for flag, value in BASE_PARAMS.items():
             command.extend([flag, *value] if isinstance(value, list) else [flag, value])
@@ -94,16 +119,24 @@ class DDARunner:
         """Process the DDA output file and load the result."""
 
         st_path = output_path.with_name(f"{output_path.stem}_ST")
-        lines = st_path.read_text().splitlines()[:-1]
-        st_path.write_text("\n".join(lines))
 
-        return np.loadtxt(st_path), st_path
+        # Load the data
+        Q = np.loadtxt(st_path)
+
+        # Process according to DDA format: skip first 2 columns and transpose
+        if Q.shape[1] > 2:
+            print(f"Loaded DDA output shape: {Q.shape}")
+            Q = Q[:, 2:]  # Skip first 2 columns
+            Q = Q[:, 1::4]  # Take every 4th column starting from column 1 (0-indexed)
+            Q = Q.T  # Transpose to get channels × time windows
+
+        return Q, st_path
 
     def _prepare_execution(
         self,
         input_file: str,
         output_file: Optional[str],
-        channel_list: List[str],
+        channel_list: List[int],
         bounds: Optional[Tuple[int, int]],
         cpu_time: bool,
     ) -> Tuple[List[str], Path]:
@@ -120,7 +153,7 @@ class DDARunner:
         self,
         input_file: str,
         output_file: Optional[str] = None,
-        channel_list: List[str] = [],
+        channel_list: List[int] = [],
         bounds: Optional[Tuple[int, int]] = None,
         cpu_time: bool = False,
         raise_on_error: bool = False,
@@ -130,12 +163,20 @@ class DDARunner:
         command, output_path = self._prepare_execution(
             input_file, output_file, channel_list, bounds, cpu_time
         )
-        process = subprocess.run(command)
+
+        # Make binary executable if needed
+        if not os.access(self.binary_path, os.X_OK):
+            os.chmod(self.binary_path, 0o755)
+
+        # Run APE binary
+        process = subprocess.run(command, capture_output=raise_on_error)
 
         if raise_on_error and process.returncode != 0:
             stderr = process.stderr if process.stderr else b""
             raise subprocess.CalledProcessError(
-                process.returncode, command, stderr.decode()
+                process.returncode,
+                command,
+                stderr.decode() if stderr else "Command failed",
             )
 
         return self._process_output(output_path)
@@ -144,7 +185,7 @@ class DDARunner:
         self,
         input_file: str,
         output_file: Optional[str] = None,
-        channel_list: List[str] = [],
+        channel_list: List[int] = [],
         bounds: Optional[Tuple[int, int]] = None,
         cpu_time: bool = False,
         raise_on_error: bool = False,
@@ -154,16 +195,31 @@ class DDARunner:
         command, output_path = self._prepare_execution(
             input_file, output_file, channel_list, bounds, cpu_time
         )
-        process = await asyncio.create_subprocess_exec(
-            *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-        )
+
+        # Make binary executable if needed
+        if not os.access(self.binary_path, os.X_OK):
+            os.chmod(self.binary_path, 0o755)
+
+        # Run APE binary asynchronously
+        if raise_on_error:
+            process = await asyncio.create_subprocess_exec(
+                *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            )
+        else:
+            process = await asyncio.create_subprocess_exec(
+                *command,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
 
         await process.wait()
 
         if raise_on_error and process.returncode != 0:
-            stderr = await process.stderr.read()
+            stderr = await process.stderr.read() if process.stderr else b""
             raise subprocess.CalledProcessError(
-                process.returncode, command, stderr.decode()
+                process.returncode,
+                command,
+                stderr.decode() if stderr else "Command failed",
             )
 
         return self._process_output(output_path)
