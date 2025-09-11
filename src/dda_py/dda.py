@@ -1,13 +1,12 @@
-from typing import List, Tuple, Optional, Dict, Union
-import subprocess
-import platform
-import os
-from pathlib import Path
 import asyncio
+import os
+import platform
+import subprocess
 import tempfile
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
-
 
 # Constants for fixed parameters
 BASE_PARAMS: Dict[str, Union[str, List[str]]] = {
@@ -118,7 +117,12 @@ class DDARunner:
     def _process_output(output_path: Path) -> Tuple[np.ndarray, Path]:
         """Process the DDA output file and load the result."""
 
+        # Handle the case where DDA binary creates filename.ext_ST instead of filename_ST
+        # First try the expected format (filename_ST), then try the actual format (filename.ext_ST)
         st_path = output_path.with_name(f"{output_path.stem}_ST")
+        if not st_path.exists():
+            # Try the format that includes the original extension
+            st_path = output_path.with_suffix(f"{output_path.suffix}_ST")
 
         # Load the data
         Q = np.loadtxt(st_path)

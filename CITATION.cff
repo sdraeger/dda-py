@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "dda-py: Python Wrapper for Delay Differential Analysis"
+version: 0.2.4
+date-released: 2024-01-01
+url: "https://github.com/sdraeger/dda-py"
+repository-code: "https://github.com/sdraeger/dda-py"
+authors:
+  - family-names: "Draeger"
+    given-names: "Simon"
+    email: "sdraeger@salk.edu"
+license: MIT
+abstract: "A Python wrapper for DDA with native support for APE (Actually Portable Executable) binaries, enabling cross-platform execution without platform-specific binaries."
+keywords:
+  - "delay differential analysis"
+  - "DDA"
+  - "APE binary"
+  - "cross-platform"
+  - "medical science"
+  - "scientific computing"
