@@ -36,7 +36,7 @@ Repository = "https://github.com/sdraeger/dda-py"
 Issues = "https://github.com/sdraeger/dda-py/issues"
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0", "pytest-cov>=4.0"]
+dev = ["pytest>=7.0", "pytest-cov>=4.0", "numpy>=1.20"]
 
 [project.scripts]
 dda = "dda_py.cli:main"

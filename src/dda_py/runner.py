@@ -7,6 +7,7 @@ Generator: dda-codegen v0.1.0
 
 DDA CLI Constants and Helper Functions
 """
+from __future__ import annotations
 
 import subprocess
 import tempfile
