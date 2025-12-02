@@ -29,7 +29,7 @@ from .variants import (
     generate_select_mask,
     parse_select_mask,
     format_select_mask,
-    ScaleParameters,
+    DEFAULT_DELAYS,
 )
 
 from .runner import (
@@ -66,7 +66,7 @@ __all__ = [
     "generate_select_mask",
     "parse_select_mask",
     "format_select_mask",
-    "ScaleParameters",
+    "DEFAULT_DELAYS",
     "DDARunner",
     "DDARequest",
     "Flags",
