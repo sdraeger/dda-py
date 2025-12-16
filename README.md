@@ -1,17 +1,10 @@
-# `dda-py`: Python Wrapper for Delay Differential Analysis
+# dda-py
 
-A Python wrapper for DDA with native support for APE (Actually Portable Executable) binaries, enabling cross-platform execution without platform-specific binaries.
+Python bindings for DDA (Delay Differential Analysis).
 
-## Features
-
-- **APE Binary Support**: Native support for Actually Portable Executable binaries
-- **Cross-Platform**: Works on Windows, macOS, and Linux with the same APE binary
-- **Async Support**: Both synchronous and asynchronous execution
-- **Easy Integration**: Simple Python API for DDA analysis
+The [DDA binary](https://snl.salk.edu/~sfdraeger/dda/) is required. Please download the most recent version from the file server.
 
 ## Installation
-
-Install the package from PyPI:
 
 ```bash
 pip install dda-py
@@ -19,70 +12,31 @@ pip install dda-py
 
 ## Usage
 
-### Basic Usage
-
 ```python
-import dda_py
+from dda_py import DDARequest, DDARunner, ST, generate_select_mask
 
-# Initialize with APE binary path
-dda_py.init("./run_DDA_AsciiEdf")
-
-# Run DDA analysis
-Q, output_path = dda_py.run_dda(
+# Create a DDA request
+request = DDARequest(
     input_file="data.edf",
-    channel_list=["1", "2", "3"]
+    output_file="results.dda",
+    select_mask=generate_select_mask([ST]),  # Select ST variant
 )
 
-print(f"Result shape: {Q.shape}")  # channels × time windows
+# Run DDA
+runner = DDARunner(binary_path="run_DDA_AsciiEdf")
+result = runner.run(request)
 ```
 
-### Using DDARunner Class
+## Variants
 
-```python
-from dda_py import DDARunner
+The package provides access to all DDA variants:
 
-# Create runner instance
-runner = DDARunner("./run_DDA_AsciiEdf")
+- `ST` - Single Timeseries
+- `CT` - Cross Timeseries
+- `CD` - Cross Dynamical
+- `DE` - Dynamical Ergodicity
+- `SY` - Synchrony
 
-# Run analysis with options
-Q, output_path = runner.run(
-    input_file="data.edf",
-    channel_list=["1", "2", "3"],
-    bounds=(1000, 5000),  # Optional time bounds
-    cpu_time=True         # Enable CPU timing
-)
-```
+## License
 
-### Async Usage
-
-```python
-import asyncio
-from dda_py import DDARunner
-
-async def analyze_data():
-    runner = DDARunner("./run_DDA_AsciiEdf")
-    Q, output_path = await runner.run_async(
-        input_file="data.edf",
-        channel_list=["1", "2", "3"]
-    )
-    return Q
-
-# Run async
-result = asyncio.run(analyze_data())
-```
-
-## APE Binary Support
-
-This package is designed to work with APE (Actually Portable Executable) binaries. APE binaries:
-
-- Run on Windows, macOS, and Linux without modification
-- No need for platform-specific binaries
-- Automatic platform detection and execution
-
-The package automatically handles APE binary execution across different platforms using the appropriate shell interpreter when needed.
-
-## Requirements
-
-- Python 3.6+
-- NumPy >= 1.19.0
-- DDA APE binary (place in your working directory)
+MIT
