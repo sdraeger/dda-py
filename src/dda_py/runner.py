@@ -7,15 +7,15 @@ Generator: dda-codegen v0.1.0
 
 DDA CLI Constants and Helper Functions
 """
+
 from __future__ import annotations
 
+import os
 import subprocess
 import tempfile
-import os
-from pathlib import Path
-from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
-
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 # Binary configuration
 BINARY_NAME = "run_DDA_AsciiEdf"
@@ -25,6 +25,7 @@ REQUIRES_SHELL_WRAPPER = True
 @dataclass
 class DDARequest:
     """DDA Analysis Request Parameters"""
+
     file_path: str
     channels: List[int]  # 0-based channel indices
     variants: List[str]  # Variant abbreviations (e.g., ["ST", "SY"])
@@ -55,7 +56,7 @@ class DDARunner:
         Raises:
             FileNotFoundError: If binary does not exist
         """
-        self.binary_path = Path(binary_path)
+        self.binary_path = Path(binary_path).resolve()
         if not self.binary_path.exists():
             raise FileNotFoundError(f"DDA binary not found: {binary_path}")
 
@@ -73,7 +74,7 @@ class DDARunner:
             RuntimeError: If DDA execution fails
         """
         # Validate input file
-        input_file = Path(request.file_path)
+        input_file = Path(request.file_path).resolve()
         if not input_file.exists():
             raise FileNotFoundError(f"Input file not found: {request.file_path}")
 
@@ -82,11 +83,11 @@ class DDARunner:
         output_base = os.path.join(temp_dir, f"dda_output_{os.getpid()}")
 
         # Build command
-        cmd = self._build_command(request, output_base)
+        cmd = self._build_command(request, output_base, input_file)
 
         # Execute binary
         try:
-            result = subprocess.run(
+            subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
@@ -94,20 +95,21 @@ class DDARunner:
             )
         except subprocess.CalledProcessError as e:
             raise RuntimeError(
-                f"DDA execution failed:\n"
-                f"Command: {' '.join(cmd)}\n"
-                f"Error: {e.stderr}"
+                f"DDA execution failed:\nCommand: {' '.join(cmd)}\nError: {e.stderr}"
             )
 
         # Parse results
         return self._parse_results(request, output_base)
 
-    def _build_command(self, request: DDARequest, output_base: str) -> List[str]:
+    def _build_command(
+        self, request: DDARequest, output_base: str, input_file: Path
+    ) -> List[str]:
         """Build DDA command line arguments
 
         Args:
             request: DDA request parameters
             output_base: Base path for output files
+            input_file: Resolved path to input file
 
         Returns:
             List of command arguments
@@ -117,67 +119,65 @@ class DDARunner:
         cmd = []
 
         # Unix systems need shell wrapper for APE binaries
-        if REQUIRES_SHELL_WRAPPER and os.name != 'nt':
-            cmd.extend(['sh', str(self.binary_path)])
+        if REQUIRES_SHELL_WRAPPER and os.name != "nt":
+            cmd.extend(["sh", str(self.binary_path)])
         else:
             cmd.append(str(self.binary_path))
 
         # File type
-        if request.file_path.lower().endswith('.edf'):
-            cmd.append('-EDF')
+        if request.file_path.lower().endswith(".edf"):
+            cmd.append("-EDF")
         else:
-            cmd.append('-ASCII')
+            cmd.append("-ASCII")
 
         # Input/Output files
-        cmd.extend(['-DATA_FN', request.file_path])
-        cmd.extend(['-OUT_FN', output_base])
+        cmd.extend(["-DATA_FN", str(input_file)])
+        cmd.extend(["-OUT_FN", output_base])
 
         # Channel list (convert 0-based to 1-based)
-        cmd.append('-CH_list')
+        cmd.append("-CH_list")
         cmd.extend([str(ch + 1) for ch in request.channels])
 
         # SELECT mask
         mask = generate_select_mask(request.variants)
-        cmd.append('-SELECT')
+        cmd.append("-SELECT")
         cmd.extend([str(b) for b in mask])
 
         # Model parameters (DDA model encoding)
-        model_params = request.model_params if request.model_params is not None else [1, 2, 10]
-        cmd.append('-MODEL')
+        model_params = (
+            request.model_params if request.model_params is not None else [1, 2, 10]
+        )
+        cmd.append("-MODEL")
         cmd.extend([str(p) for p in model_params])
 
         # Delay values (tau)
-        cmd.append('-TAU')
+        cmd.append("-TAU")
         cmd.extend([str(d) for d in request.delays])
 
         # Window parameters
-        cmd.extend(['-WL', str(request.window_length)])
-        cmd.extend(['-WS', str(request.window_step)])
+        cmd.extend(["-WL", str(request.window_length)])
+        cmd.extend(["-WS", str(request.window_step)])
 
         # CT window parameters (if needed)
         if request.ct_window_length is not None:
-            cmd.extend(['-WL_CT', str(request.ct_window_length)])
+            cmd.extend(["-WL_CT", str(request.ct_window_length)])
         if request.ct_window_step is not None:
-            cmd.extend(['-WS_CT', str(request.ct_window_step)])
+            cmd.extend(["-WS_CT", str(request.ct_window_step)])
 
         # Embedding parameters
-        cmd.extend(['-dm', str(request.model_dimension)])
-        cmd.extend(['-order', str(request.polynomial_order)])
-        cmd.extend(['-nr_tau', str(request.num_tau)])
+        cmd.extend(["-dm", str(request.model_dimension)])
+        cmd.extend(["-order", str(request.polynomial_order)])
+        cmd.extend(["-nr_tau", str(request.num_tau)])
 
         # Time bounds (if specified)
         if request.time_range:
             start_sample = int(request.time_range[0])
             end_sample = int(request.time_range[1])
-            cmd.extend(['-StartEnd', str(start_sample), str(end_sample)])
+            cmd.extend(["-StartEnd", str(start_sample), str(end_sample)])
 
         return cmd
 
-    def _parse_results(
-        self,
-        request: DDARequest,
-        output_base: str
-    ) -> Dict[str, Any]:
+    def _parse_results(self, request: DDARequest, output_base: str) -> Dict[str, Any]:
         """Parse DDA output files
 
         Args:
@@ -233,21 +233,23 @@ class DDARunner:
                 )
 
             # Parse output file to structured format
-            parsed_data = self._parse_output_file_structured(output_file, variant.stride)
+            parsed_data = self._parse_output_file_structured(
+                output_file, variant.stride
+            )
 
             results[variant_abbrev] = {
-                'channels': parsed_data['channels'],
-                'num_channels': len(parsed_data['channels']),
-                'num_timepoints': len(parsed_data['channels'][0]['timepoints']) if parsed_data['channels'] else 0,
-                'stride': variant.stride,
+                "channels": parsed_data["channels"],
+                "num_channels": len(parsed_data["channels"]),
+                "num_timepoints": len(parsed_data["channels"][0]["timepoints"])
+                if parsed_data["channels"]
+                else 0,
+                "stride": variant.stride,
             }
 
         return results
 
     def _parse_output_file_structured(
-        self,
-        file_path: Path,
-        stride: int
+        self, file_path: Path, stride: int
     ) -> Dict[str, Any]:
         """Parse a DDA output file into structured format
 
@@ -277,22 +279,20 @@ class DDARunner:
         """
         # Read all lines from file
         raw_data = []
-        with open(file_path, 'r') as f:
+        with open(file_path, "r") as f:
             for line in f:
                 line = line.strip()
-                if not line or line.startswith('#'):
+                if not line or line.startswith("#"):
                     continue
                 values = [float(x) for x in line.split()]
                 if values:
                     raw_data.append(values)
 
         if not raw_data:
-            return {'channels': []}
+            return {"channels": []}
 
         # Group data by channel/pair
         # Each row contains: window_start window_end [data for all channels/pairs]
-        num_timepoints = len(raw_data)
-
         # Determine number of channels/pairs from row length
         # Format: window_start window_end [stride values per channel] * num_channels
         first_row = raw_data[0]
@@ -333,25 +333,20 @@ class DDARunner:
                     coefficients = []
                     error = 0.0
 
-                timepoints.append({
-                    'window_start': window_start,
-                    'window_end': window_end,
-                    'coefficients': coefficients,
-                    'error': error
-                })
+                timepoints.append(
+                    {
+                        "window_start": window_start,
+                        "window_end": window_end,
+                        "coefficients": coefficients,
+                        "error": error,
+                    }
+                )
 
-            channels.append({
-                'channel_index': channel_idx,
-                'timepoints': timepoints
-            })
+            channels.append({"channel_index": channel_idx, "timepoints": timepoints})
 
-        return {'channels': channels}
+        return {"channels": channels}
 
-    def _parse_output_file(
-        self,
-        file_path: Path,
-        stride: int
-    ) -> List[List[float]]:
+    def _parse_output_file(self, file_path: Path, stride: int) -> List[List[float]]:
         """Parse a DDA output file (legacy format for backward compatibility)
 
         Args:
@@ -366,11 +361,11 @@ class DDARunner:
         """
         matrix = []
 
-        with open(file_path, 'r') as f:
+        with open(file_path, "r") as f:
             for line in f:
                 # Skip comments and empty lines
                 line = line.strip()
-                if not line or line.startswith('#'):
+                if not line or line.startswith("#"):
                     continue
 
                 # Parse values
@@ -398,7 +393,6 @@ class DDARunner:
             return []
 
         # Transpose to [channels × timepoints]
-        num_rows = len(extracted)
         num_cols = len(extracted[0])
 
         transposed = [[] for _ in range(num_cols)]
@@ -412,6 +406,7 @@ class DDARunner:
 # CLI Flags (for reference)
 class Flags:
     """DDA CLI Flag Constants"""
+
     DATA_FILE = "-DATA_FN"
     OUTPUT_FILE = "-OUT_FN"
     CHANNEL_LIST = "-CH_list"

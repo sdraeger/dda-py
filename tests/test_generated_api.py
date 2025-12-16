@@ -38,6 +38,7 @@ def dda_binary_path():
     ddalab_root = test_file_path.parent.parent.parent.parent
 
     possible_paths = [
+        Path(__file__).parent.parent / "run_DDA_AsciiEdf",  # Project root
         ddalab_root / "bin" / "run_DDA_AsciiEdf",
         ddalab_root / "run_DDA_AsciiEdf_v1.0",
         Path.cwd() / "bin" / "run_DDA_AsciiEdf",
@@ -64,6 +65,7 @@ def sample_edf_file():
     ddalab_root = test_file_path.parent.parent.parent.parent
 
     possible_paths = [
+        Path(__file__).parent.parent / "patient1_S05__01_03.edf",  # Project root
         ddalab_root / "data" / "patient1_S05__01_03 (1).edf",
         ddalab_root / "data" / "edf" / "MG108_Seizure7post.edf",
         Path.cwd() / "data" / "patient1_S05__01_03 (1).edf",
@@ -179,7 +181,9 @@ def run_dda_cli_direct(
             results[variant_abbrev] = {
                 "channels": parsed["channels"],
                 "num_channels": len(parsed["channels"]),
-                "num_timepoints": len(parsed["channels"][0]["timepoints"]) if parsed["channels"] else 0,
+                "num_timepoints": len(parsed["channels"][0]["timepoints"])
+                if parsed["channels"]
+                else 0,
                 "stride": variant.stride,
             }
         else:
@@ -203,10 +207,12 @@ def compare_structured_results(api_result: dict, cli_result: dict, variant_name:
         variant_name: Name of variant being tested
     """
     # Check dimensions match
-    assert api_result["num_channels"] == cli_result["num_channels"], \
+    assert api_result["num_channels"] == cli_result["num_channels"], (
         f"{variant_name}: Number of channels differ"
-    assert api_result["num_timepoints"] == cli_result["num_timepoints"], \
+    )
+    assert api_result["num_timepoints"] == cli_result["num_timepoints"], (
         f"{variant_name}: Number of timepoints differ"
+    )
 
     # Check structured data matches
     for ch_idx in range(api_result["num_channels"]):
@@ -221,10 +227,12 @@ def compare_structured_results(api_result: dict, cli_result: dict, variant_name:
             cli_tp = cli_channel["timepoints"][tp_idx]
 
             # Check window bounds
-            assert api_tp["window_start"] == cli_tp["window_start"], \
+            assert api_tp["window_start"] == cli_tp["window_start"], (
                 f"{variant_name}: Window start differs at channel {ch_idx}, timepoint {tp_idx}"
-            assert api_tp["window_end"] == cli_tp["window_end"], \
+            )
+            assert api_tp["window_end"] == cli_tp["window_end"], (
                 f"{variant_name}: Window end differs at channel {ch_idx}, timepoint {tp_idx}"
+            )
 
             # Check coefficients
             np.testing.assert_allclose(
@@ -300,17 +308,16 @@ def parse_dda_output_structured(file_path: Path, stride: int) -> dict:
                 coefficients = []
                 error = 0.0
 
-            timepoints.append({
-                "window_start": window_start,
-                "window_end": window_end,
-                "coefficients": coefficients,
-                "error": error
-            })
+            timepoints.append(
+                {
+                    "window_start": window_start,
+                    "window_end": window_end,
+                    "coefficients": coefficients,
+                    "error": error,
+                }
+            )
 
-        channels.append({
-            "channel_index": channel_idx,
-            "timepoints": timepoints
-        })
+        channels.append({"channel_index": channel_idx, "timepoints": timepoints})
 
     return {"channels": channels}
 
@@ -582,7 +589,9 @@ class TestGeneratedAPI:
         for variant in variants:
             assert variant in api_results
             assert variant in cli_results
-            compare_structured_results(api_results[variant], cli_results[variant], variant)
+            compare_structured_results(
+                api_results[variant], cli_results[variant], variant
+            )
 
     @pytest.mark.integration
     def test_different_window_sizes_match(
@@ -620,7 +629,7 @@ class TestGeneratedAPI:
             compare_structured_results(
                 api_results["ST"],
                 cli_results["ST"],
-                f"ST (WL={window_length}, WS={window_step})"
+                f"ST (WL={window_length}, WS={window_step})",
             )
 
     def test_command_building_internal(self, runner, sample_edf_file):
@@ -635,12 +644,13 @@ class TestGeneratedAPI:
         )
 
         # Build command
-        cmd = runner._build_command(request, "/tmp/output")
+        input_file = Path(sample_edf_file).resolve()
+        cmd = runner._build_command(request, "/tmp/output", input_file)
 
         # Check key elements are present
         assert "-EDF" in cmd or "-ASCII" in cmd
         assert "-DATA_FN" in cmd
-        assert sample_edf_file in cmd
+        assert str(input_file) in cmd
         assert "-OUT_FN" in cmd
         assert "-CH_list" in cmd
         # Channels should be 1-based
@@ -666,7 +676,8 @@ class TestGeneratedAPI:
         )
 
         # Build command and verify delays are passed correctly
-        cmd = runner._build_command(request, "/tmp/output")
+        input_file = Path(sample_edf_file).resolve()
+        cmd = runner._build_command(request, "/tmp/output", input_file)
 
         # Find TAU in command
         tau_idx = cmd.index("-TAU")

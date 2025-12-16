@@ -11,8 +11,6 @@ The tests in this file verify that:
 4. Running the binary with spec-generated commands produces expected results
 """
 
-import os
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -23,35 +21,32 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from dda_py.variants import (
-    SPEC_VERSION,
-    SELECT_MASK_SIZE,
     BINARY_NAME,
+    CD,
+    CT,
+    DE,
+    DEFAULT_DELAYS,
     REQUIRES_SHELL_WRAPPER,
+    RESERVED,
+    SELECT_MASK_SIZE,
     SHELL_COMMAND,
+    SPEC_VERSION,
+    ST,
     SUPPORTED_PLATFORMS,
+    SY,
+    VARIANT_ORDER,
+    VARIANT_REGISTRY,
     ChannelFormat,
     FileType,
-    OutputColumns,
-    VariantMetadata,
-    ST,
-    CT,
-    CD,
-    RESERVED,
-    DE,
-    SY,
-    VARIANT_REGISTRY,
-    VARIANT_ORDER,
     SelectMaskPositions,
-    get_variant_by_abbrev,
-    get_variant_by_suffix,
-    get_variant_by_position,
     active_variants,
-    generate_select_mask,
-    parse_select_mask,
     format_select_mask,
-    DEFAULT_DELAYS,
+    generate_select_mask,
+    get_variant_by_abbrev,
+    get_variant_by_position,
+    get_variant_by_suffix,
+    parse_select_mask,
 )
-
 
 # Expected configurations - canonical source of truth for tests
 EXPECTED_VARIANTS = [
@@ -124,9 +119,9 @@ class TestVariantMetadata:
 
     def test_variant_positions_are_sequential(self):
         for i, variant in enumerate(VARIANT_REGISTRY):
-            assert (
-                variant.position == i
-            ), f"Variant {variant.abbreviation} has position {variant.position} but expected {i}"
+            assert variant.position == i, (
+                f"Variant {variant.abbreviation} has position {variant.position} but expected {i}"
+            )
 
     def test_variant_abbreviations_are_unique(self):
         abbrevs = [v.abbreviation for v in VARIANT_REGISTRY]
@@ -141,7 +136,9 @@ class TestVariantMetadata:
             if variant.abbreviation == "RESERVED":
                 assert variant.reserved, "RESERVED should be reserved"
             else:
-                assert not variant.reserved, f"{variant.abbreviation} should not be reserved"
+                assert not variant.reserved, (
+                    f"{variant.abbreviation} should not be reserved"
+                )
 
 
 # =============================================================================
@@ -263,9 +260,9 @@ class TestLookupFunctions:
 
     def test_lookup_by_abbreviation(self):
         for abbrev, _, _, _, _ in EXPECTED_VARIANTS:
-            assert (
-                get_variant_by_abbrev(abbrev) is not None
-            ), f"Should find variant by abbreviation: {abbrev}"
+            assert get_variant_by_abbrev(abbrev) is not None, (
+                f"Should find variant by abbreviation: {abbrev}"
+            )
 
         assert get_variant_by_abbrev("XX") is None
         assert get_variant_by_abbrev("") is None
@@ -273,9 +270,9 @@ class TestLookupFunctions:
 
     def test_lookup_by_position(self):
         for i in range(SELECT_MASK_SIZE):
-            assert (
-                get_variant_by_position(i) is not None
-            ), f"Should find variant at position {i}"
+            assert get_variant_by_position(i) is not None, (
+                f"Should find variant at position {i}"
+            )
 
         assert get_variant_by_position(6) is None
         assert get_variant_by_position(99) is None
@@ -283,9 +280,9 @@ class TestLookupFunctions:
 
     def test_lookup_by_suffix(self):
         for _, _, suffix, _, _ in EXPECTED_VARIANTS:
-            assert (
-                get_variant_by_suffix(suffix) is not None
-            ), f"Should find variant by suffix: {suffix}"
+            assert get_variant_by_suffix(suffix) is not None, (
+                f"Should find variant by suffix: {suffix}"
+            )
 
         assert get_variant_by_suffix("_XX") is None
         assert get_variant_by_suffix("") is None
@@ -460,9 +457,9 @@ class TestVariantOrder:
 
     def test_variant_order_matches_positions(self):
         for i, variant in enumerate(VARIANT_REGISTRY):
-            assert (
-                VARIANT_ORDER[i] == variant.abbreviation
-            ), f"VARIANT_ORDER[{i}] should be {variant.abbreviation}"
+            assert VARIANT_ORDER[i] == variant.abbreviation, (
+                f"VARIANT_ORDER[{i}] should be {variant.abbreviation}"
+            )
 
     def test_variant_order_complete(self):
         assert len(VARIANT_ORDER) == SELECT_MASK_SIZE
@@ -571,7 +568,10 @@ class TestOutputFileParsing:
         assert ST.output_columns.coefficients == 3
         assert ST.output_columns.has_error is True
         # Total columns = coefficients + error = 3 + 1 = 4 = stride
-        assert ST.output_columns.coefficients + (1 if ST.output_columns.has_error else 0) == ST.stride
+        assert (
+            ST.output_columns.coefficients + (1 if ST.output_columns.has_error else 0)
+            == ST.stride
+        )
 
     def test_ct_output_stride_parsing(self):
         """Verify CT stride=4 correctly parses 4 columns per pair.
@@ -582,7 +582,10 @@ class TestOutputFileParsing:
         assert CT.stride == 4
         assert CT.output_columns.coefficients == 3
         assert CT.output_columns.has_error is True
-        assert CT.output_columns.coefficients + (1 if CT.output_columns.has_error else 0) == CT.stride
+        assert (
+            CT.output_columns.coefficients + (1 if CT.output_columns.has_error else 0)
+            == CT.stride
+        )
 
     def test_cd_output_stride_parsing(self):
         """Verify CD stride=2 correctly parses 2 columns per directed pair.
@@ -593,7 +596,10 @@ class TestOutputFileParsing:
         assert CD.stride == 2
         assert CD.output_columns.coefficients == 1
         assert CD.output_columns.has_error is True
-        assert CD.output_columns.coefficients + (1 if CD.output_columns.has_error else 0) == CD.stride
+        assert (
+            CD.output_columns.coefficients + (1 if CD.output_columns.has_error else 0)
+            == CD.stride
+        )
 
     def test_de_output_stride_parsing(self):
         """Verify DE stride=1 correctly parses 1 column.
@@ -659,12 +665,12 @@ class TestMockOutputParsing:
 
         # Extract data for channel 0
         ch0_start = 2  # Skip window bounds
-        ch0_data = mock_data[0][ch0_start:ch0_start + stride]
+        ch0_data = mock_data[0][ch0_start : ch0_start + stride]
         assert ch0_data == [0.1, 0.2, 0.3, 0.01]
 
         # Extract data for channel 1
         ch1_start = ch0_start + stride
-        ch1_data = mock_data[0][ch1_start:ch1_start + stride]
+        ch1_data = mock_data[0][ch1_start : ch1_start + stride]
         assert ch1_data == [0.4, 0.5, 0.6, 0.02]
 
     def test_parse_cd_mock_output(self):
@@ -681,12 +687,12 @@ class TestMockOutputParsing:
 
         # Extract data for pair 1->2
         p0_start = 2
-        p0_data = mock_data[0][p0_start:p0_start + stride]
+        p0_data = mock_data[0][p0_start : p0_start + stride]
         assert p0_data == [0.1, 0.01]
 
         # Extract data for pair 2->1
         p1_start = p0_start + stride
-        p1_data = mock_data[0][p1_start:p1_start + stride]
+        p1_data = mock_data[0][p1_start : p1_start + stride]
         assert p1_data == [0.2, 0.02]
 
     def test_parse_sy_mock_output(self):
@@ -704,20 +710,22 @@ class TestMockOutputParsing:
         # Each channel gets 1 value
         for i in range(3):
             ch_start = 2 + (i * stride)
-            ch_data = mock_data[0][ch_start:ch_start + stride]
+            ch_data = mock_data[0][ch_start : ch_start + stride]
             assert len(ch_data) == 1
 
     def test_stride_determines_num_channels(self):
         """Verify stride correctly determines number of channels from output width."""
         # Ground truth: data_columns / stride = num_channels
         test_cases = [
-            (ST.stride, 8, 2),   # 8 data cols / 4 stride = 2 channels
+            (ST.stride, 8, 2),  # 8 data cols / 4 stride = 2 channels
             (ST.stride, 12, 3),  # 12 data cols / 4 stride = 3 channels
-            (CD.stride, 4, 2),   # 4 data cols / 2 stride = 2 pairs
-            (SY.stride, 5, 5),   # 5 data cols / 1 stride = 5 channels
+            (CD.stride, 4, 2),  # 4 data cols / 2 stride = 2 pairs
+            (SY.stride, 5, 5),  # 5 data cols / 1 stride = 5 channels
         ]
         for stride, data_cols, expected_num in test_cases:
-            assert data_cols % stride == 0, f"Data cols {data_cols} not divisible by stride {stride}"
+            assert data_cols % stride == 0, (
+                f"Data cols {data_cols} not divisible by stride {stride}"
+            )
             assert data_cols // stride == expected_num
 
 
@@ -770,9 +778,12 @@ class TestBinaryIntegration:
     def binary_path(self):
         """Locate the DDA binary if available."""
         possible_paths = [
+            Path(__file__).parent.parent / "run_DDA_AsciiEdf",  # Project root
             Path("/usr/local/bin/run_DDA_AsciiEdf"),
             Path.home() / ".local/bin/run_DDA_AsciiEdf",
-            Path(__file__).parent.parent.parent.parent / "binaries" / "run_DDA_AsciiEdf",
+            Path(__file__).parent.parent.parent.parent
+            / "binaries"
+            / "run_DDA_AsciiEdf",
         ]
         for path in possible_paths:
             if path.exists():
@@ -783,11 +794,12 @@ class TestBinaryIntegration:
     def test_data_file(self):
         """Create a simple test data file."""
         # Create minimal ASCII data for testing
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             # 3 channels, 1000 samples
             for i in range(1000):
                 # Simple sinusoidal data
                 import math
+
                 ch1 = math.sin(i * 0.1)
                 ch2 = math.cos(i * 0.1)
                 ch3 = math.sin(i * 0.05)
