@@ -10,89 +10,110 @@ The [DDA binary](https://snl.salk.edu/~sfdraeger/dda/) is required. Please downl
 pip install dda-py
 ```
 
-## Usage
+Optional dependencies:
 
-### Basic Example
+```bash
+pip install dda-py[mne]     # MNE-Python integration
+pip install dda-py[pandas]  # DataFrame export
+pip install dda-py[all]     # All optional deps
+```
+
+## Quick Start (High-Level API)
+
+```python
+import numpy as np
+from dda_py import run_st
+
+# Analyze a numpy array (n_channels x n_samples)
+data = np.random.randn(3, 10000)
+result = run_st(data, sfreq=256.0, delays=(7, 10), wl=200, ws=100)
+
+print(result.coefficients.shape)   # (3, n_windows, 3)
+print(result.n_channels)           # 3
+print(result.n_windows)            # depends on data length
+print(result.to_dataframe().head())
+```
+
+### MNE-Python Integration
+
+```python
+import mne
+from dda_py import run_st
+
+raw = mne.io.read_raw_edf("data.edf", preload=True)
+result = run_st(raw, delays=(7, 10), wl=200, ws=100)
+# sfreq is extracted automatically from the MNE Raw object
+```
+
+### Cross-Timeseries Analysis
+
+```python
+from dda_py import run_ct
+
+data = np.random.randn(4, 10000)  # 4 channels
+result = run_ct(data, sfreq=256.0, delays=(7, 10), wl=200, ws=100)
+print(result.n_pairs)              # 6 (all unique pairs)
+print(result.pair_labels)          # ['ch0-ch1', 'ch0-ch2', ...]
+```
+
+### Dynamical Ergodicity
+
+```python
+from dda_py import run_de
+
+data = np.random.randn(2, 10000)
+result = run_de(data, sfreq=256.0, delays=(7, 10), wl=200, ws=100)
+print(result.ergodicity.shape)     # (n_windows,)
+```
+
+## Low-Level API
+
+For full control over the DDA binary:
 
 ```python
 from dda_py import DDARequest, DDARunner
 
-# Initialize the runner with path to DDA binary
-runner = DDARunner(binary_path="run_DDA_AsciiEdf")
-
-# Create an analysis request
+runner = DDARunner()  # auto-discovers binary
 request = DDARequest(
-    file_path="patient1_S05__01_03.edf",
-    channels=[1, 2, 3],  # 0-based channel indices
-    variants=["ST", "SY"],  # Which DDA variants to run
-    window_length=2048,
-    window_step=1024,
-    delays=[7, 10],  # Delay values for -TAU flag
-)
-
-# Execute DDA analysis
-results = runner.run(request)
-
-# Access results for each variant
-for variant_name, variant_results in results.items():
-    print(f"\n{variant_name} Results:")
-    print(f"  Matrix shape: {variant_results['num_channels']} × {variant_results['num_timepoints']}")
-    print(f"  Stride: {variant_results['stride']}")
-
-    # Access the actual data
-    channels = variant_results["channels"]
-    print(f"  Data: {len(channels)} channels with {len(channels[0]['timepoints'])} timepoints each")
-```
-
-### Advanced Options
-
-```python
-# Full configuration example with all optional parameters
-request = DDARequest(
-    file_path="patient1_S05__01_03.edf",
-    channels=[1, 2, 3],
-    variants=["ST", "CT", "SY"],
-    window_length=2048,
-    window_step=1024,
+    file_path="data.edf",
+    channels=[0, 1, 2],
+    variants=["ST"],
+    window_length=200,
+    window_step=100,
     delays=[7, 10],
-    model_params=[1, 2, 10],  # DDA model encoding for -MODEL flag
-    # Optional parameters:
-    ct_window_length=2,  # Required for CT/CD/DE variants
-    ct_window_step=2,
-    polynomial_order=4,
-    num_tau=2,
 )
+results = runner.run(request)
 ```
 
-### Working with Variant Metadata
+## Model Encoding
+
+Visualize what DDA model indices mean:
 
 ```python
-from dda_py import get_variant_by_abbrev, generate_select_mask, parse_select_mask
+from dda_py import visualize_model_space, decode_model_encoding
 
-# Get information about a variant
-st_variant = get_variant_by_abbrev("ST")
-print(f"Name: {st_variant.name}")
-print(f"Documentation: {st_variant.documentation}")
-print(f"Stride: {st_variant.stride}")
+# Show all monomials for 2 delays, polynomial order 4
+print(visualize_model_space(2, 4, highlight_encoding=[1, 2, 10]))
 
-# Generate SELECT masks for multiple variants
-mask = generate_select_mask(["ST", "CT", "SY"])
-print(f"SELECT mask: {mask}")
+# Decode model [1, 2, 10] to equation
+print(decode_model_encoding([1, 2, 10], num_delays=2, polynomial_order=4, format="text"))
+# dx/dt = a_1 x_1 + a_2 x_2 + a_3 x_1^4
+```
 
-# Parse a mask to see which variants are enabled
-enabled = parse_select_mask(mask)
-print(f"Enabled variants: {enabled}")
+## CLI
+
+```bash
+dda --file data.edf --channels 0 1 2 --variants ST --wl 200 --ws 100
+dda --file data.edf --channels 0 1 2 --variants ST CT --delays 7 10 -o results.json
 ```
 
 ## Variants
 
-The package provides access to all DDA variants:
-
-- `ST` - Single Timeseries
-- `CT` - Cross Timeseries
-- `CD` - Cross Dynamical
-- `DE` - Dynamical Ergodicity
-- `SY` - Synchrony
+- **ST** - Single Timeseries
+- **CT** - Cross Timeseries
+- **CD** - Cross Dynamical
+- **DE** - Dynamical Ergodicity
+- **SY** - Synchrony
 
 ## License
 

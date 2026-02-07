@@ -8,97 +8,131 @@ The MODEL parameter encodes which polynomial terms to include in the DDE model.
 For a given number of delays and polynomial order, all possible monomials are enumerated
 and assigned 1-based indices. The MODEL encoding then selects specific monomials by index.
 
-Example:
-    For 2 delays and polynomial order 2, the monomial space is:
-    - Index 1: [0, 1] → x₁ (linear term in first delay)
-    - Index 2: [0, 2] → x₂ (linear term in second delay)
-    - Index 3: [1, 1] → x₁² (quadratic term)
-    - Index 4: [1, 2] → x₁·x₂ (cross term)
-    - Index 5: [2, 2] → x₂² (quadratic term)
+Monomial Generation (Canonical Format):
+    All non-decreasing tuples of length `polynomial_order` with values in
+    {0, 1, ..., num_delays}, excluding the all-zeros tuple. Value 0 means
+    "no factor" (padding), value k > 0 means x(t - tau_k).
 
-    Model encoding [1, 3, 5] represents: ẋ = a₁x₁ + a₂x₁² + a₃x₂²
+Example:
+    For 2 delays and polynomial order 4, the monomial space includes:
+    - Index 1:  (0, 0, 0, 1) -> x(t-tau_1)
+    - Index 2:  (0, 0, 0, 2) -> x(t-tau_2)
+    - Index 3:  (0, 0, 1, 1) -> x(t-tau_1)^2
+    - ...
+    - Index 10: (1, 1, 1, 1) -> x(t-tau_1)^4
+    - ...
+    - Index 14: (2, 2, 2, 2) -> x(t-tau_2)^4
+
+    Model encoding [1, 2, 10] represents: dx/dt = a_1 x(t-tau_1) + a_2 x(t-tau_2) + a_3 x(t-tau_1)^4
 """
 
-from typing import List, Tuple
-from itertools import combinations_with_replacement
+from typing import List, Tuple, Generator
 from collections import Counter
+
+
+def _non_decreasing_tuples(
+    length: int, min_val: int, max_val: int
+) -> Generator[Tuple[int, ...], None, None]:
+    """Generate all non-decreasing tuples of given length with values in [min_val, max_val].
+
+    Args:
+        length: Length of each tuple.
+        min_val: Minimum value (inclusive).
+        max_val: Maximum value (inclusive).
+
+    Yields:
+        Non-decreasing tuples of the specified length.
+    """
+    if length == 0:
+        yield ()
+        return
+    for v in range(min_val, max_val + 1):
+        for suffix in _non_decreasing_tuples(length - 1, v, max_val):
+            yield (v,) + suffix
 
 
 def generate_monomials(num_delays: int, polynomial_order: int) -> List[Tuple[int, ...]]:
     """Generate all monomial encodings for DDA model space.
 
-    Generates monomials in canonical order: linear terms first (degree 1),
-    then higher degree terms in lexicographic order.
+    Generates all non-decreasing tuples of length ``polynomial_order`` with values
+    in {0, 1, ..., num_delays}, excluding the all-zeros tuple. This matches the
+    canonical format used by the DDA binary and the TypeScript/Rust implementations.
+
+    Each tuple has fixed length equal to ``polynomial_order``. Value 0 means
+    "no factor" (padding), value k > 0 means x(t - tau_k).
 
     Args:
-        num_delays: Number of delay values (tau values)
-        polynomial_order: Maximum polynomial degree
+        num_delays: Number of delay values (tau values).
+        polynomial_order: Maximum polynomial degree (determines tuple length).
 
     Returns:
         List of tuples representing monomials in canonical order.
-        Linear terms are encoded as (0, j) where j is the delay index.
-        Higher order terms are encoded as tuples of delay indices.
 
     Example:
         >>> generate_monomials(2, 2)
         [(0, 1), (0, 2), (1, 1), (1, 2), (2, 2)]
+
+        >>> generate_monomials(2, 3)
+        [(0, 0, 1), (0, 0, 2), (0, 1, 1), (0, 1, 2), (0, 2, 2),
+         (1, 1, 1), (1, 1, 2), (1, 2, 2), (2, 2, 2)]
     """
-    monomials = []
+    all_zeros = (0,) * polynomial_order
+    return [
+        t for t in _non_decreasing_tuples(polynomial_order, 0, num_delays)
+        if t != all_zeros
+    ]
 
-    # Degree 1: Linear terms [0, j] for j in 1..num_delays
-    for j in range(1, num_delays + 1):
-        monomials.append((0, j))
 
-    # Degrees 2 to polynomial_order: All non-decreasing sequences
-    for degree in range(2, polynomial_order + 1):
-        for combo in combinations_with_replacement(range(1, num_delays + 1), degree):
-            monomials.append(combo)
+def _group_factors(monomial: Tuple[int, ...]) -> Counter:
+    """Count non-zero factors in a monomial encoding.
 
-    return monomials
+    Args:
+        monomial: Canonical monomial tuple (may contain leading zeros).
+
+    Returns:
+        Counter mapping delay index -> exponent count.
+    """
+    return Counter(v for v in monomial if v > 0)
 
 
 def monomial_to_latex(monomial: Tuple[int, ...], tau_values: List[float] = None) -> str:
     """Convert a monomial encoding to LaTeX representation.
 
     Args:
-        monomial: Tuple of indices representing the monomial
-        tau_values: Optional list of delay values to include in notation
+        monomial: Canonical tuple representing the monomial.
+        tau_values: Optional list of delay values to include in notation.
 
     Returns:
-        LaTeX string representation
+        LaTeX string representation.
 
     Example:
-        >>> monomial_to_latex((0, 1))
-        'x_1'
-        >>> monomial_to_latex((1, 1))
-        'x_1^2'
-        >>> monomial_to_latex((1, 2))
-        'x_1 x_2'
+        >>> monomial_to_latex((0, 0, 0, 1))
+        'x_{1}'
+        >>> monomial_to_latex((0, 0, 1, 1))
+        'x_{1}^{2}'
+        >>> monomial_to_latex((0, 0, 1, 2))
+        'x_{1} x_{2}'
+        >>> monomial_to_latex((0, 1), tau_values=[7, 10])
+        'x(t - 7)'
     """
-    if len(monomial) == 2 and monomial[0] == 0:
-        # Linear term [0, j] → x_j
-        delay_idx = monomial[1]
-        if tau_values is not None and delay_idx <= len(tau_values):
-            tau = tau_values[delay_idx - 1]
-            return f"x(t - {tau})"
-        return f"x_{{{delay_idx}}}"
-
-    # Higher order terms: count occurrences of each index
-    counts = Counter(monomial)
+    counts = _group_factors(monomial)
+    if not counts:
+        return "1"
 
     terms = []
     for idx in sorted(counts.keys()):
         if tau_values is not None and idx <= len(tau_values):
             tau = tau_values[idx - 1]
-            if counts[idx] == 1:
-                terms.append(f"x(t - {tau})")
+            base = f"x(t - {tau})"
+            if counts[idx] > 1:
+                terms.append(f"{base}^{{{counts[idx]}}}")
             else:
-                terms.append(f"x(t - {tau})^{{{counts[idx]}}}")
+                terms.append(base)
         else:
-            if counts[idx] == 1:
-                terms.append(f"x_{{{idx}}}")
-            else:
+            if counts[idx] > 1:
                 terms.append(f"x_{{{idx}}}^{{{counts[idx]}}}")
+            else:
+                terms.append(f"x_{{{idx}}}")
 
     return " ".join(terms)
 
@@ -107,44 +141,38 @@ def monomial_to_text(monomial: Tuple[int, ...], tau_values: List[float] = None) 
     """Convert a monomial encoding to plain text representation.
 
     Args:
-        monomial: Tuple of indices representing the monomial
-        tau_values: Optional list of delay values to include in notation
+        monomial: Canonical tuple representing the monomial.
+        tau_values: Optional list of delay values to include in notation.
 
     Returns:
-        Plain text string representation
+        Plain text string representation.
 
     Example:
-        >>> monomial_to_text((0, 1))
+        >>> monomial_to_text((0, 0, 0, 1))
         'x_1'
-        >>> monomial_to_text((1, 1))
+        >>> monomial_to_text((0, 0, 1, 1))
         'x_1^2'
-        >>> monomial_to_text((1, 2))
+        >>> monomial_to_text((0, 0, 1, 2))
         'x_1 * x_2'
     """
-    if len(monomial) == 2 and monomial[0] == 0:
-        # Linear term [0, j] → x_j
-        delay_idx = monomial[1]
-        if tau_values is not None and delay_idx <= len(tau_values):
-            tau = tau_values[delay_idx - 1]
-            return f"x(t - {tau})"
-        return f"x_{delay_idx}"
-
-    # Higher order terms: count occurrences of each index
-    counts = Counter(monomial)
+    counts = _group_factors(monomial)
+    if not counts:
+        return "1"
 
     terms = []
     for idx in sorted(counts.keys()):
         if tau_values is not None and idx <= len(tau_values):
             tau = tau_values[idx - 1]
-            if counts[idx] == 1:
-                terms.append(f"x(t - {tau})")
+            base = f"x(t - {tau})"
+            if counts[idx] > 1:
+                terms.append(f"{base}^{counts[idx]}")
             else:
-                terms.append(f"x(t - {tau})^{counts[idx]}")
+                terms.append(base)
         else:
-            if counts[idx] == 1:
-                terms.append(f"x_{idx}")
-            else:
+            if counts[idx] > 1:
                 terms.append(f"x_{idx}^{counts[idx]}")
+            else:
+                terms.append(f"x_{idx}")
 
     return " * ".join(terms)
 
@@ -159,26 +187,24 @@ def decode_model_encoding(
     """Decode a MODEL parameter into its DDE representation.
 
     Args:
-        model_encoding: List of 1-based indices selecting monomials (e.g., [1, 3, 5])
-        num_delays: Number of delay values
-        polynomial_order: Maximum polynomial degree
-        tau_values: Optional list of actual tau values to include in notation
-        format: Output format ("latex" or "text")
+        model_encoding: List of 1-based indices selecting monomials (e.g., [1, 2, 10]).
+        num_delays: Number of delay values.
+        polynomial_order: Maximum polynomial degree.
+        tau_values: Optional list of actual tau values to include in notation.
+        format: Output format ("latex" or "text").
 
     Returns:
-        String representation of the DDE equation
+        String representation of the DDE equation.
 
     Raises:
-        ValueError: If any index in model_encoding is out of range
+        ValueError: If any index in model_encoding is out of range.
 
     Example:
         >>> decode_model_encoding([1, 3, 5], 2, 2, format="text")
         'dx/dt = a_1 x_1 + a_2 x_1^2 + a_3 x_2^2'
     """
-    # Generate all monomials in canonical order
     monomials = generate_monomials(num_delays, polynomial_order)
 
-    # Validate and build equation terms
     terms = []
     for coeff_idx, monomial_idx in enumerate(model_encoding, start=1):
         if monomial_idx < 1 or monomial_idx > len(monomials):
@@ -187,7 +213,7 @@ def decode_model_encoding(
                 f"Must be in range [1, {len(monomials)}]"
             )
 
-        monomial = monomials[monomial_idx - 1]  # Convert to 0-based indexing
+        monomial = monomials[monomial_idx - 1]
 
         if format == "latex":
             coeff_str = f"a_{{{coeff_idx}}}"
@@ -215,26 +241,26 @@ def visualize_model_space(
     """Visualize the complete model space with all available monomials.
 
     Args:
-        num_delays: Number of delay values
-        polynomial_order: Maximum polynomial degree
-        tau_values: Optional list of actual tau values to include in output
-        highlight_encoding: Optional model encoding to highlight selected terms
+        num_delays: Number of delay values.
+        polynomial_order: Maximum polynomial degree.
+        tau_values: Optional list of actual tau values to include in output.
+        highlight_encoding: Optional model encoding to highlight selected terms.
 
     Returns:
-        Formatted string showing all monomials with their indices
+        Formatted string showing all monomials with their indices.
 
     Example:
         >>> print(visualize_model_space(2, 2))
         Model Space: 2 delays, order 2
         Total monomials: 5
-
-        Index | Encoding | Term
-        ------|----------|-----
-            1 | [0, 1]   | x_1
-            2 | [0, 2]   | x_2
-            3 | [1, 1]   | x_1^2
-            4 | [1, 2]   | x_1 * x_2
-            5 | [2, 2]   | x_2^2
+        <BLANKLINE>
+        Index | Encoding    | Term
+        ------|-------------|---------------------
+           1 | (0, 1)      | x_1
+           2 | (0, 2)      | x_2
+           3 | (1, 1)      | x_1^2
+           4 | (1, 2)      | x_1 * x_2
+           5 | (2, 2)      | x_2^2
     """
     monomials = generate_monomials(num_delays, polynomial_order)
 
@@ -253,7 +279,7 @@ def visualize_model_space(
     highlight_set = set(highlight_encoding) if highlight_encoding else set()
 
     for idx, monomial in enumerate(monomials, start=1):
-        encoding_str = str(list(monomial))
+        encoding_str = str(monomial)
         term_str = monomial_to_text(monomial, tau_values)
 
         marker = " *" if idx in highlight_set else "  "
@@ -286,26 +312,17 @@ def model_encoding_to_dict(
     Useful for API responses or JSON serialization.
 
     Args:
-        model_encoding: List of 1-based indices
-        num_delays: Number of delay values
-        polynomial_order: Maximum polynomial degree
-        tau_values: Optional list of actual tau values
+        model_encoding: List of 1-based indices.
+        num_delays: Number of delay values.
+        polynomial_order: Maximum polynomial degree.
+        tau_values: Optional list of actual tau values.
 
     Returns:
-        Dictionary with equation details
+        Dictionary with equation details.
 
     Example:
         >>> model_encoding_to_dict([1, 3, 5], 2, 2)
-        {
-            'equation_latex': '\\dot{x} = a_1 x_1 + a_2 x_1^2 + a_3 x_2^2',
-            'equation_text': 'dx/dt = a_1 x_1 + a_2 x_1^2 + a_3 x_2^2',
-            'num_terms': 3,
-            'terms': [
-                {'coefficient': 'a_1', 'monomial': [0, 1], 'term_text': 'x_1'},
-                {'coefficient': 'a_2', 'monomial': [1, 1], 'term_text': 'x_1^2'},
-                {'coefficient': 'a_3', 'monomial': [2, 2], 'term_text': 'x_2^2'}
-            ]
-        }
+        {'equation_latex': '...', 'equation_text': '...', 'num_terms': 3, ...}
     """
     monomials = generate_monomials(num_delays, polynomial_order)
 
@@ -339,7 +356,6 @@ def model_encoding_to_dict(
     }
 
 
-# CLI interface for quick visualization
 if __name__ == "__main__":
     import sys
 
@@ -347,16 +363,14 @@ if __name__ == "__main__":
         print("Usage: python -m dda_py.model_encoding <num_delays> <polynomial_order> [model_encoding...]")
         print("\nExample:")
         print("  python -m dda_py.model_encoding 2 2")
-        print("  python -m dda_py.model_encoding 2 2 1 3 5")
+        print("  python -m dda_py.model_encoding 2 4 1 2 10")
         sys.exit(1)
 
     num_delays = int(sys.argv[1])
     poly_order = int(sys.argv[2])
 
     if len(sys.argv) > 3:
-        # Decode specific model
         model_enc = [int(x) for x in sys.argv[3:]]
         print(visualize_model_space(num_delays, poly_order, highlight_encoding=model_enc))
     else:
-        # Show full model space
         print(visualize_model_space(num_delays, poly_order))

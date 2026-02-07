@@ -39,6 +39,27 @@ from .runner import (
     Defaults,
 )
 
+from .results import (
+    STResult,
+    CTResult,
+    DEResult,
+)
+
+from .api import (
+    run_st,
+    run_ct,
+    run_de,
+)
+
+from .model_encoding import (
+    generate_monomials,
+    monomial_to_text,
+    monomial_to_latex,
+    decode_model_encoding,
+    visualize_model_space,
+    model_encoding_to_dict,
+)
+
 __all__ = [
     "SPEC_VERSION",
     "SELECT_MASK_SIZE",
@@ -71,4 +92,16 @@ __all__ = [
     "DDARequest",
     "Flags",
     "Defaults",
+    "STResult",
+    "CTResult",
+    "DEResult",
+    "run_st",
+    "run_ct",
+    "run_de",
+    "generate_monomials",
+    "monomial_to_text",
+    "monomial_to_latex",
+    "decode_model_encoding",
+    "visualize_model_space",
+    "model_encoding_to_dict",
 ]
