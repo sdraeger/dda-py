@@ -90,6 +90,39 @@ from .model_encoding import (
     model_encoding_to_dict,
 )
 
+# Import batch processing
+from .batch import (
+    GroupResult,
+    run_batch,
+    collect_results,
+)
+
+# Import statistics
+from .stats import (
+    PermutationResult,
+    EffectSizeResult,
+    WindowComparisonResult,
+    permutation_test,
+    compare_windows,
+    compute_effect_size,
+)
+
+# Import plotting (lazy — matplotlib only imported when functions are called)
+from .plotting import (
+    plot_coefficients,
+    plot_errors,
+    plot_heatmap,
+    plot_ergodicity,
+    plot_model,
+)
+
+# Import BIDS integration (lazy — mne-bids only imported when functions are called)
+from .bids import (
+    BIDSRecording,
+    find_recordings,
+    run_bids,
+)
+
 __all__ = [
     # Spec constants
     "SPEC_VERSION",
@@ -144,6 +177,27 @@ __all__ = [
     "decode_model_encoding",
     "visualize_model_space",
     "model_encoding_to_dict",
+    # Batch processing
+    "GroupResult",
+    "run_batch",
+    "collect_results",
+    # Statistics
+    "PermutationResult",
+    "EffectSizeResult",
+    "WindowComparisonResult",
+    "permutation_test",
+    "compare_windows",
+    "compute_effect_size",
+    # Plotting
+    "plot_coefficients",
+    "plot_errors",
+    "plot_heatmap",
+    "plot_ergodicity",
+    "plot_model",
+    # BIDS integration
+    "BIDSRecording",
+    "find_recordings",
+    "run_bids",
 ]
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"

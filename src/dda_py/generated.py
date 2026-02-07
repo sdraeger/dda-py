@@ -60,6 +60,35 @@ from .model_encoding import (
     model_encoding_to_dict,
 )
 
+from .batch import (
+    GroupResult,
+    run_batch,
+    collect_results,
+)
+
+from .stats import (
+    PermutationResult,
+    EffectSizeResult,
+    WindowComparisonResult,
+    permutation_test,
+    compare_windows,
+    compute_effect_size,
+)
+
+from .plotting import (
+    plot_coefficients,
+    plot_errors,
+    plot_heatmap,
+    plot_ergodicity,
+    plot_model,
+)
+
+from .bids import (
+    BIDSRecording,
+    find_recordings,
+    run_bids,
+)
+
 __all__ = [
     "SPEC_VERSION",
     "SELECT_MASK_SIZE",
@@ -104,4 +133,21 @@ __all__ = [
     "decode_model_encoding",
     "visualize_model_space",
     "model_encoding_to_dict",
+    "GroupResult",
+    "run_batch",
+    "collect_results",
+    "PermutationResult",
+    "EffectSizeResult",
+    "WindowComparisonResult",
+    "permutation_test",
+    "compare_windows",
+    "compute_effect_size",
+    "plot_coefficients",
+    "plot_errors",
+    "plot_heatmap",
+    "plot_ergodicity",
+    "plot_model",
+    "BIDSRecording",
+    "find_recordings",
+    "run_bids",
 ]
