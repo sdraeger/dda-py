@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dda-py"
-version = "0.4.0"
+version = "0.4.1"
 description = "Python bindings for DDA (Delay Differential Analysis)"
 readme = "README.md"
 license = {text = "MIT"}

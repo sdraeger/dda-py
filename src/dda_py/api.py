@@ -287,7 +287,8 @@ def run_st(
     Returns:
         :class:`STResult` with numpy arrays.
     """
-    model = model or list(Defaults.MODEL_PARAMS)
+    if model is None:
+        model = list(Defaults.MODEL_PARAMS)
     arr, sfreq_actual, ch_labels = _extract_data(data, sfreq, channels)
 
     temp_path = _write_temp_ascii(arr)
@@ -357,7 +358,8 @@ def run_ct(
     Raises:
         ValueError: If fewer than 2 channels are provided.
     """
-    model = model or list(Defaults.MODEL_PARAMS)
+    if model is None:
+        model = list(Defaults.MODEL_PARAMS)
     arr, sfreq_actual, ch_labels = _extract_data(data, sfreq, channels)
 
     if arr.shape[0] < 2:
@@ -435,7 +437,8 @@ def run_de(
     Returns:
         :class:`DEResult` with numpy arrays.
     """
-    model = model or list(Defaults.MODEL_PARAMS)
+    if model is None:
+        model = list(Defaults.MODEL_PARAMS)
     arr, sfreq_actual, ch_labels = _extract_data(data, sfreq, channels)
 
     temp_path = _write_temp_ascii(arr)

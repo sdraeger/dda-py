@@ -4,21 +4,19 @@ import platform
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
 
 import numpy as np
 
-# Constants for fixed parameters
-BASE_PARAMS: Dict[str, Union[str, List[str]]] = {
-    "-dm": "4",
-    "-order": "4",
-    "-nr_tau": "2",
-    "-WL": "125",
-    "-WS": "62",
-    "-SELECT": ["1", "0", "0", "0"],
-    "-MODEL": ["1", "2", "10"],
-    "-TAU": ["7", "10"],
-}
+# Default analysis parameters.
+DEFAULT_MODEL_DIMENSION = 4
+DEFAULT_POLYNOMIAL_ORDER = 4
+DEFAULT_NUM_TAU = 2
+DEFAULT_WINDOW_LENGTH = 200
+DEFAULT_WINDOW_STEP = 100
+DEFAULT_SELECT_MASK = [1, 0, 0, 0]  # ST enabled by default
+DEFAULT_MODEL_PARAMS = [1, 2, 10]
+DEFAULT_DELAYS = [7, 10]
 
 __all__ = ["DDARunner", "init", "DDA_BINARY_PATH"]
 
@@ -83,6 +81,16 @@ class DDARunner:
         channel_list: List[int],
         bounds: Optional[Tuple[int, int]] = None,
         cpu_time: bool = False,
+        select_mask: Optional[List[int]] = None,
+        model_params: Optional[List[int]] = None,
+        delays: Optional[List[int]] = None,
+        window_length: Optional[int] = None,
+        window_step: Optional[int] = None,
+        ct_window_length: Optional[int] = None,
+        ct_window_step: Optional[int] = None,
+        model_dimension: Optional[int] = None,
+        polynomial_order: Optional[int] = None,
+        num_tau: Optional[int] = None,
     ) -> List[str]:
         """Construct a command list for DDA execution."""
 
@@ -102,8 +110,56 @@ class DDARunner:
             ]
         )
 
-        for flag, value in BASE_PARAMS.items():
-            command.extend([flag, *value] if isinstance(value, list) else [flag, value])
+        effective_model_dimension = (
+            model_dimension
+            if model_dimension is not None
+            else DEFAULT_MODEL_DIMENSION
+        )
+        effective_polynomial_order = (
+            polynomial_order
+            if polynomial_order is not None
+            else DEFAULT_POLYNOMIAL_ORDER
+        )
+        effective_num_tau = num_tau if num_tau is not None else DEFAULT_NUM_TAU
+        effective_window_length = (
+            window_length if window_length is not None else DEFAULT_WINDOW_LENGTH
+        )
+        effective_window_step = (
+            window_step if window_step is not None else DEFAULT_WINDOW_STEP
+        )
+        effective_select_mask = (
+            select_mask if select_mask is not None else DEFAULT_SELECT_MASK
+        )
+        effective_model_params = (
+            model_params if model_params is not None else DEFAULT_MODEL_PARAMS
+        )
+        effective_delays = delays if delays is not None else DEFAULT_DELAYS
+
+        command.extend(
+            [
+                "-dm",
+                str(effective_model_dimension),
+                "-order",
+                str(effective_polynomial_order),
+                "-nr_tau",
+                str(effective_num_tau),
+                "-WL",
+                str(effective_window_length),
+                "-WS",
+                str(effective_window_step),
+                "-SELECT",
+                *[str(v) for v in effective_select_mask],
+                "-MODEL",
+                *[str(v) for v in effective_model_params],
+                "-TAU",
+                *[str(v) for v in effective_delays],
+            ]
+        )
+
+        if ct_window_length is not None:
+            command.extend(["-WL_CT", str(ct_window_length)])
+        if ct_window_step is not None:
+            command.extend(["-WS_CT", str(ct_window_step)])
 
         if bounds:
             command.extend(["-StartEnd", str(bounds[0]), str(bounds[1])])
@@ -143,12 +199,36 @@ class DDARunner:
         channel_list: List[int],
         bounds: Optional[Tuple[int, int]],
         cpu_time: bool,
+        select_mask: Optional[List[int]],
+        model_params: Optional[List[int]],
+        delays: Optional[List[int]],
+        window_length: Optional[int],
+        window_step: Optional[int],
+        ct_window_length: Optional[int],
+        ct_window_step: Optional[int],
+        model_dimension: Optional[int],
+        polynomial_order: Optional[int],
+        num_tau: Optional[int],
     ) -> Tuple[List[str], Path]:
         """Prepare command and output path for execution."""
 
         output_path = Path(output_file) if output_file else self._create_tempfile()
         command = self._make_command(
-            input_file, str(output_path), channel_list, bounds, cpu_time
+            input_file,
+            str(output_path),
+            channel_list,
+            bounds,
+            cpu_time,
+            select_mask=select_mask,
+            model_params=model_params,
+            delays=delays,
+            window_length=window_length,
+            window_step=window_step,
+            ct_window_length=ct_window_length,
+            ct_window_step=ct_window_step,
+            model_dimension=model_dimension,
+            polynomial_order=polynomial_order,
+            num_tau=num_tau,
         )
 
         return command, output_path
@@ -157,15 +237,40 @@ class DDARunner:
         self,
         input_file: str,
         output_file: Optional[str] = None,
-        channel_list: List[int] = [],
+        channel_list: Optional[List[int]] = None,
         bounds: Optional[Tuple[int, int]] = None,
         cpu_time: bool = False,
         raise_on_error: bool = False,
+        select_mask: Optional[List[int]] = None,
+        model_params: Optional[List[int]] = None,
+        delays: Optional[List[int]] = None,
+        window_length: Optional[int] = None,
+        window_step: Optional[int] = None,
+        ct_window_length: Optional[int] = None,
+        ct_window_step: Optional[int] = None,
+        model_dimension: Optional[int] = None,
+        polynomial_order: Optional[int] = None,
+        num_tau: Optional[int] = None,
     ) -> Tuple[np.ndarray, Path]:
         """Run DDA synchronously."""
 
+        channels = channel_list if channel_list is not None else []
         command, output_path = self._prepare_execution(
-            input_file, output_file, channel_list, bounds, cpu_time
+            input_file,
+            output_file,
+            channels,
+            bounds,
+            cpu_time,
+            select_mask,
+            model_params,
+            delays,
+            window_length,
+            window_step,
+            ct_window_length,
+            ct_window_step,
+            model_dimension,
+            polynomial_order,
+            num_tau,
         )
 
         # Make binary executable if needed
@@ -189,15 +294,40 @@ class DDARunner:
         self,
         input_file: str,
         output_file: Optional[str] = None,
-        channel_list: List[int] = [],
+        channel_list: Optional[List[int]] = None,
         bounds: Optional[Tuple[int, int]] = None,
         cpu_time: bool = False,
         raise_on_error: bool = False,
+        select_mask: Optional[List[int]] = None,
+        model_params: Optional[List[int]] = None,
+        delays: Optional[List[int]] = None,
+        window_length: Optional[int] = None,
+        window_step: Optional[int] = None,
+        ct_window_length: Optional[int] = None,
+        ct_window_step: Optional[int] = None,
+        model_dimension: Optional[int] = None,
+        polynomial_order: Optional[int] = None,
+        num_tau: Optional[int] = None,
     ) -> Tuple[np.ndarray, Path]:
         """Run DDA asynchronously."""
 
+        channels = channel_list if channel_list is not None else []
         command, output_path = self._prepare_execution(
-            input_file, output_file, channel_list, bounds, cpu_time
+            input_file,
+            output_file,
+            channels,
+            bounds,
+            cpu_time,
+            select_mask,
+            model_params,
+            delays,
+            window_length,
+            window_step,
+            ct_window_length,
+            ct_window_step,
+            model_dimension,
+            polynomial_order,
+            num_tau,
         )
 
         # Make binary executable if needed

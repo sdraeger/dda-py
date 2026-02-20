@@ -20,6 +20,13 @@ from typing import Any, Dict, List, Optional
 # Binary configuration
 BINARY_NAME = "run_DDA_AsciiEdf"
 REQUIRES_SHELL_WRAPPER = True
+DEFAULT_MODEL_PARAMS = [1, 2, 10]
+DEFAULT_MODEL_DIMENSION = 4
+DEFAULT_POLYNOMIAL_ORDER = 4
+DEFAULT_NUM_TAU = 2
+DEFAULT_WINDOW_LENGTH = 200
+DEFAULT_WINDOW_STEP = 100
+DEFAULT_DELAYS = (7, 10)
 
 
 @dataclass
@@ -32,13 +39,13 @@ class DDARequest:
     window_length: int
     window_step: int
     delays: List[int]  # Delay values (tau) - e.g., [1, 2, 3, 4, 5]
-    model_params: List[int] = None  # DDA model encoding (default: [1, 2, 10])
+    model_params: Optional[List[int]] = None  # DDA model encoding (default: [1, 2, 10])
     time_range: Optional[tuple[float, float]] = None
     ct_window_length: Optional[int] = None
     ct_window_step: Optional[int] = None
-    model_dimension: int = 4
-    polynomial_order: int = 4
-    num_tau: int = 2
+    model_dimension: int = DEFAULT_MODEL_DIMENSION
+    polynomial_order: int = DEFAULT_POLYNOMIAL_ORDER
+    num_tau: int = DEFAULT_NUM_TAU
 
 
 class DDARunner:
@@ -163,7 +170,9 @@ class DDARunner:
 
         # Model parameters (DDA model encoding)
         model_params = (
-            request.model_params if request.model_params is not None else [1, 2, 10]
+            request.model_params
+            if request.model_params is not None
+            else list(DEFAULT_MODEL_PARAMS)
         )
         cmd.append("-MODEL")
         cmd.extend([str(p) for p in model_params])
@@ -176,11 +185,21 @@ class DDARunner:
         cmd.extend(["-WL", str(request.window_length)])
         cmd.extend(["-WS", str(request.window_step)])
 
-        # CT window parameters (if needed)
-        if request.ct_window_length is not None:
-            cmd.extend(["-WL_CT", str(request.ct_window_length)])
-        if request.ct_window_step is not None:
-            cmd.extend(["-WS_CT", str(request.ct_window_step)])
+        # CT window parameters:
+        # use explicit values if provided, otherwise fall back to WL/WS when
+        # CT-family variants are enabled.
+        needs_ct_params = any(v in {"CT", "CD", "DE"} for v in request.variants)
+        ct_window_length = request.ct_window_length
+        ct_window_step = request.ct_window_step
+        if needs_ct_params:
+            if ct_window_length is None:
+                ct_window_length = request.window_length
+            if ct_window_step is None:
+                ct_window_step = request.window_step
+        if ct_window_length is not None:
+            cmd.extend(["-WL_CT", str(ct_window_length)])
+        if ct_window_step is not None:
+            cmd.extend(["-WS_CT", str(ct_window_step)])
 
         # Embedding parameters
         cmd.extend(["-dm", str(request.model_dimension)])
@@ -444,10 +463,10 @@ class Flags:
 # Default values
 class Defaults:
     """Default parameter values for DDA analysis."""
-    MODEL_PARAMS = [1, 2, 10]
-    MODEL_DIMENSION = 4
-    POLYNOMIAL_ORDER = 4
-    NUM_TAU = 2
-    WINDOW_LENGTH = 200
-    WINDOW_STEP = 100
-    DELAYS = (7, 10)
+    MODEL_PARAMS = DEFAULT_MODEL_PARAMS
+    MODEL_DIMENSION = DEFAULT_MODEL_DIMENSION
+    POLYNOMIAL_ORDER = DEFAULT_POLYNOMIAL_ORDER
+    NUM_TAU = DEFAULT_NUM_TAU
+    WINDOW_LENGTH = DEFAULT_WINDOW_LENGTH
+    WINDOW_STEP = DEFAULT_WINDOW_STEP
+    DELAYS = DEFAULT_DELAYS

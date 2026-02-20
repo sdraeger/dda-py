@@ -25,7 +25,7 @@ def main() -> None:
     parser.add_argument("--wl", type=int, default=Defaults.WINDOW_LENGTH, help="Window length in samples")
     parser.add_argument("--ws", type=int, default=Defaults.WINDOW_STEP, help="Window step in samples")
     parser.add_argument("--delays", nargs="+", type=int, default=list(DEFAULT_DELAYS), help="Delay values (tau)")
-    parser.add_argument("--model", nargs="+", type=int, default=Defaults.MODEL_PARAMS, help="Model encoding indices")
+    parser.add_argument("--model", nargs="+", type=int, default=list(Defaults.MODEL_PARAMS), help="Model encoding indices")
     parser.add_argument("--binary", default=None, help="Path to DDA binary (auto-discovered if omitted)")
     parser.add_argument("--dm", type=int, default=Defaults.MODEL_DIMENSION, help="Model dimension")
     parser.add_argument("--order", type=int, default=Defaults.POLYNOMIAL_ORDER, help="Polynomial order")
