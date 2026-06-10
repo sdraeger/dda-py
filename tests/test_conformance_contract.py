@@ -21,19 +21,34 @@ from dda_py import (  # noqa: E402
 
 @pytest.fixture(scope="module")
 def contract() -> dict:
-    path = (
-        Path(__file__).resolve().parent.parent.parent.parent
+    package_root = Path(__file__).resolve().parent.parent
+    ddalab_root = package_root.parent.parent
+    candidates = [
+        ddalab_root
+        / "packages"
+        / "DelayDifferentialAnalysis.jl"
         / "conformance"
-        / "dda_conformance_contract.json"
-    )
+        / "dda_conformance_contract.json",
+        ddalab_root / "conformance" / "dda_conformance_contract.json",
+    ]
+    path = next((candidate for candidate in candidates if candidate.exists()), None)
+    if path is None:
+        path = (
+            Path(__file__).resolve().parent.parent.parent.parent
+            / "conformance"
+            / "dda_conformance_contract.json"
+        )
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def test_defaults_match_contract(contract: dict):
     defaults = contract["defaults"]
-    assert Defaults.WINDOW_LENGTH == defaults["window_length"]
-    assert Defaults.WINDOW_STEP == defaults["window_step"]
-    assert Defaults.MODEL_DIMENSION == defaults["model_dimension"]
+    assert Defaults.WINDOW_LENGTH == defaults.get("WL", defaults.get("window_length"))
+    assert Defaults.WINDOW_STEP == defaults.get("WS", defaults.get("window_step"))
+    assert Defaults.MODEL_DIMENSION == defaults.get(
+        "derivative_points",
+        defaults.get("model_dimension"),
+    )
     assert Defaults.POLYNOMIAL_ORDER == defaults["polynomial_order"]
     assert Defaults.NUM_TAU == defaults["num_tau"]
     assert list(Defaults.MODEL_PARAMS) == defaults["model_terms"]

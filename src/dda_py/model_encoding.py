@@ -26,7 +26,7 @@ Example:
     Model encoding [1, 2, 10] represents: dx/dt = a_1 x(t-tau_1) + a_2 x(t-tau_2) + a_3 x(t-tau_1)^4
 """
 
-from typing import List, Tuple, Generator
+from typing import List, Tuple, Generator, Sequence
 from collections import Counter
 
 
@@ -81,6 +81,65 @@ def generate_monomials(num_delays: int, polynomial_order: int) -> List[Tuple[int
         t for t in _non_decreasing_tuples(polynomial_order, 0, num_delays)
         if t != all_zeros
     ]
+
+
+def model_matrix_to_encoding(
+    model_matrix: Sequence[Sequence[int]],
+    *,
+    num_delays: int,
+    polynomial_order: int,
+) -> List[int]:
+    """Map monomial rows to 1-based ``-MODEL`` indices.
+
+    Each row must be a non-decreasing canonical monomial of length
+    ``polynomial_order`` with values in ``0:num_delays``. This mirrors the
+    Julia binding and the DDA binary's monomial table.
+    """
+    if num_delays <= 0:
+        raise ValueError(f"num_delays must be positive, got {num_delays}")
+    if polynomial_order <= 0:
+        raise ValueError(
+            f"polynomial_order must be positive, got {polynomial_order}"
+        )
+
+    rows = [tuple(int(value) for value in row) for row in model_matrix]
+    if not rows:
+        raise ValueError("Model matrix must contain at least one row")
+
+    monomials = generate_monomials(num_delays, polynomial_order)
+    monomial_index = {monomial: idx for idx, monomial in enumerate(monomials, start=1)}
+
+    encoding: List[int] = []
+    for row_idx, row in enumerate(rows, start=1):
+        if len(row) != polynomial_order:
+            raise ValueError(
+                f"Model matrix row {row_idx} has {len(row)} columns, "
+                f"but polynomial_order={polynomial_order} requires "
+                f"{polynomial_order} columns"
+            )
+        if any(value < 0 or value > num_delays for value in row):
+            raise ValueError(
+                f"Model matrix row {row_idx} has entries outside "
+                f"0:{num_delays}: {list(row)}"
+            )
+        if not any(value != 0 for value in row):
+            raise ValueError(
+                f"Model matrix row {row_idx} is all zeros, which is not a "
+                "valid model term"
+            )
+        if list(row) != sorted(row):
+            raise ValueError(
+                f"Model matrix row {row_idx} must be non-decreasing: {list(row)}"
+            )
+        try:
+            encoding.append(monomial_index[row])
+        except KeyError as exc:
+            raise ValueError(
+                f"Model matrix row {row_idx} does not match the generated "
+                f"monomial table: {list(row)}"
+            ) from exc
+
+    return encoding
 
 
 def _group_factors(monomial: Tuple[int, ...]) -> Counter:

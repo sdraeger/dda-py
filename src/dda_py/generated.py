@@ -37,12 +37,18 @@ from .runner import (
     DDARequest,
     Flags,
     Defaults,
+    build_command_string,
+    run_DDA,
 )
 
 from .results import (
+    DDAResult,
+    DelayParameters,
     STResult,
     CTResult,
     DEResult,
+    VariantResultData,
+    WindowParameters,
 )
 
 from .api import (
@@ -53,6 +59,7 @@ from .api import (
 
 from .model_encoding import (
     generate_monomials,
+    model_matrix_to_encoding,
     monomial_to_text,
     monomial_to_latex,
     decode_model_encoding,
@@ -121,13 +128,20 @@ __all__ = [
     "DDARequest",
     "Flags",
     "Defaults",
+    "build_command_string",
+    "run_DDA",
+    "DDAResult",
+    "DelayParameters",
     "STResult",
     "CTResult",
     "DEResult",
+    "VariantResultData",
+    "WindowParameters",
     "run_st",
     "run_ct",
     "run_de",
     "generate_monomials",
+    "model_matrix_to_encoding",
     "monomial_to_text",
     "monomial_to_latex",
     "decode_model_encoding",

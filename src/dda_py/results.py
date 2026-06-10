@@ -6,12 +6,78 @@ convenience methods for conversion to pandas DataFrames.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Dict, Any, TYPE_CHECKING
+from typing import List, Dict, Any, Optional, TYPE_CHECKING
 
 import numpy as np
 
 if TYPE_CHECKING:
     import pandas as pd
+
+
+@dataclass
+class WindowParameters:
+    """Window parameters passed to the DDA binary."""
+
+    WL: Optional[int] = None
+    WS: Optional[int] = None
+    ct_window_length: Optional[int] = None
+    ct_window_step: Optional[int] = None
+
+
+@dataclass
+class DelayParameters:
+    """Delay parameters passed to the DDA binary."""
+
+    delays: List[int]
+
+
+@dataclass
+class VariantResultData:
+    """Parsed output for one DDA flavor.
+
+    ``T`` contains the first two integer columns from the binary output file.
+    ``A`` contains every remaining column in output-file order.
+    """
+
+    variant_id: str
+    variant_name: str
+    A: np.ndarray
+    coefficients: np.ndarray
+    errors: np.ndarray
+    T: np.ndarray
+    t: np.ndarray
+    window_starts: np.ndarray
+    window_ends: np.ndarray
+    channel_labels: Optional[List[str]]
+
+
+@dataclass
+class DDAResult:
+    """Result returned by the direct binary-facing ``run_DDA`` API.
+
+    Flavor matrices are exposed as dynamic attributes, for example
+    ``result.ST`` and ``result.CT``. These return the corresponding flavor's
+    ``A`` matrix directly, matching the Julia bindings.
+    """
+
+    id: str
+    file_path: str
+    channels: List[str]
+    T: np.ndarray
+    t: np.ndarray
+    A: np.ndarray
+    variant_results: List[VariantResultData]
+    window_params: WindowParameters
+    delay_params: DelayParameters
+    created_at: str
+
+    def __getattr__(self, name: str) -> np.ndarray:
+        if name in {"ST", "CT", "CD", "DE", "SY"}:
+            for result in self.variant_results:
+                if result.variant_id == name:
+                    return result.A
+            raise AttributeError(f"DDAResult does not contain flavor {name!r}")
+        raise AttributeError(name)
 
 
 @dataclass

@@ -201,21 +201,30 @@ results = run_bids(
 
 ## Low-Level API
 
-For full control over the DDA binary:
+For full control over the DDA binary, use the direct file API. Channel indices
+are 1-based to match the DDA binary and the Julia bindings.
 
 ```python
-from dda_py import DDARequest, DDARunner
+from dda_py import run_DDA
 
-runner = DDARunner()  # auto-discovers binary
-request = DDARequest(
+result = run_DDA(
     file_path="data.edf",
-    channels=[0, 1, 2],
-    variants=["ST"],
-    window_length=200,
-    window_step=100,
+    channels=[1, 2, 3],
+    flavors=["ST", "CT"],
+    binary_path="/path/to/run_DDA_AsciiEdf",
+    WL=200,
+    WS=100,
+    WL_CT=2,
+    WS_CT=2,
     delays=[7, 10],
+    model=[1, 2, 10],
+    derivative_points=4,
+    order=4,
+    out_fn="results/run1",
 )
-results = runner.run(request)
+
+print(result.ST)
+print(result.CT)
 ```
 
 ## Model Encoding
@@ -236,8 +245,8 @@ print(decode_model_encoding([1, 2, 10], num_delays=2, polynomial_order=4, format
 ## CLI
 
 ```bash
-dda --file data.edf --channels 0 1 2 --variants ST --wl 200 --ws 100
-dda --file data.edf --channels 0 1 2 --variants ST CT --delays 7 10 -o results.json
+dda --file data.edf --channels 1 2 3 --flavors ST --wl 200 --ws 100
+dda --file data.edf --channels 1 2 3 --flavors ST CT --delays 7 10 --ct-wl 2 --ct-ws 2 -o results.json
 ```
 
 ## Variants

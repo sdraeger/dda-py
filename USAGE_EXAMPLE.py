@@ -34,21 +34,21 @@ print(f"\nDE ergodicity shape: {de_result.ergodicity.shape}")
 
 # === Low-Level API ===
 
-from dda_py import DDARequest, DDARunner
+from dda_py import DDARequest, DDARunner, run_DDA
 
 runner = DDARunner()  # auto-discovers binary
 
 request = DDARequest(
     file_path="patient1_S05__01_03.edf",
-    channels=[1, 2, 3],  # 0-based channel indices
-    variants=["ST", "SY"],  # Which DDA variants to run
-    window_length=200,
-    window_step=100,
+    channels=[1, 2, 3],  # 1-based channel indices
+    flavors=["ST", "SY"],  # Which DDA flavors to run
+    WL=200,
+    WS=100,
     delays=[7, 10],
-    model_params=[1, 2, 10],
-    model_dimension=4,
-    polynomial_order=4,
-    num_tau=2,
+    model=[1, 2, 10],
+    derivative_points=4,
+    order=4,
+    nr_tau=2,
 )
 
 results = runner.run(request)
@@ -60,6 +60,15 @@ for variant_name, variant_results in results.items():
         f"Timepoints: {variant_results['num_timepoints']}"
     )
     print(f"  Stride: {variant_results['stride']}")
+
+structured = run_DDA(
+    file_path="patient1_S05__01_03.edf",
+    channels=[1, 2, 3],
+    flavors=["ST", "SY"],
+    WL=200,
+    WS=100,
+)
+print(f"\nStructured flavors: {[v.variant_id for v in structured.variant_results]}")
 
 # === Model Encoding ===
 

@@ -9,6 +9,7 @@ import pytest
 
 from dda_py.api import _extract_data, _write_temp_ascii
 from dda_py.results import STResult, CTResult, DEResult
+from dda_py.variants import find_binary
 
 
 class TestExtractData:
@@ -75,7 +76,15 @@ class TestWriteTempAscii:
 
 
 @pytest.mark.integration
-class TestRunST:
+class _RequiresBinary:
+    @pytest.fixture(autouse=True)
+    def _skip_without_binary(self):
+        if find_binary() is None:
+            pytest.skip("DDA binary not found")
+
+
+@pytest.mark.integration
+class TestRunST(_RequiresBinary):
     """Integration tests for run_st (require DDA binary)."""
 
     def test_basic_run(self):
@@ -101,7 +110,7 @@ class TestRunST:
 
 
 @pytest.mark.integration
-class TestRunCT:
+class TestRunCT(_RequiresBinary):
     """Integration tests for run_ct (require DDA binary)."""
 
     def test_basic_run(self):
@@ -119,7 +128,7 @@ class TestRunCT:
 
 
 @pytest.mark.integration
-class TestRunDE:
+class TestRunDE(_RequiresBinary):
     """Integration tests for run_de (require DDA binary)."""
 
     def test_basic_run(self):
