@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 
+import dda_py.batch as batch_mod
 from dda_py.batch import GroupResult, collect_results, run_batch
 
 
@@ -67,7 +68,7 @@ class TestCollectResults:
         assert mean.shape == (3, 3, 3)  # (n_subjects, n_channels, n_coeffs)
 
     def test_to_dataframe(self, mock_st_result):
-        pd = pytest.importorskip("pandas")
+        pytest.importorskip("pandas")
         results = [mock_st_result(n_win=3, seed=i) for i in range(2)]
         group = collect_results(results)
         df = group.to_dataframe()
@@ -119,13 +120,8 @@ class TestRunBatch:
             lambda v: lambda data, **kw: mock_result,
         )
 
-        # Force tqdm import to fail
-        import dda_py.batch as batch_mod
-
-        original_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
-        monkeypatch.delitem(
-            __import__("sys").modules, "tqdm", raising=False
-        )
+        # Force the module-level optional tqdm import to behave as unavailable.
+        monkeypatch.setattr(batch_mod, "tqdm", None)
 
         results = run_batch(
             [str(tmp_path / "file.txt")],

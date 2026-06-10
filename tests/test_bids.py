@@ -1,10 +1,16 @@
 """Tests for BIDS integration module."""
 
+import importlib.util
+
 import pytest
 
-mne_bids = pytest.importorskip("mne_bids")
-
+import dda_py.bids as bids_mod
 from dda_py.bids import BIDSRecording, find_recordings
+
+pytestmark = pytest.mark.skipif(
+    importlib.util.find_spec("mne_bids") is None,
+    reason="mne-bids not installed",
+)
 
 
 class TestBIDSRecording:
@@ -63,9 +69,6 @@ class TestFindRecordings:
             lambda **kwargs: mock_paths,
         )
 
-        # Need to also patch _require_mne_bids
-        import dda_py.bids as bids_mod
-
         monkeypatch.setattr(
             bids_mod,
             "_require_mne_bids",
@@ -79,8 +82,6 @@ class TestFindRecordings:
         assert all(isinstance(r, BIDSRecording) for r in recordings)
 
     def test_filters_by_task(self, monkeypatch):
-        import dda_py.bids as bids_mod
-
         captured_kwargs = {}
 
         def mock_find(**kwargs):
@@ -92,9 +93,7 @@ class TestFindRecordings:
             "_require_mne_bids",
             lambda: type("M", (), {"find_matching_paths": mock_find})(),
         )
-        monkeypatch.setattr(
-            "dda_py.bids.mne_bids.find_matching_paths", mock_find
-        )
+        monkeypatch.setattr("dda_py.bids.mne_bids.find_matching_paths", mock_find)
 
         find_recordings("/data", task="rest")
         assert captured_kwargs.get("tasks") == ["rest"]

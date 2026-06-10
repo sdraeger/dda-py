@@ -1,11 +1,6 @@
 """Tests for plotting module."""
 
-import numpy as np
-import pytest
-
-mpl = pytest.importorskip("matplotlib")
-mpl.use("Agg")
-
+import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
 from dda_py.plotting import (
@@ -23,8 +18,6 @@ class TestPlotCoefficients:
         assert isinstance(fig, Figure)
 
     def test_with_existing_axes(self, mock_st_result):
-        import matplotlib.pyplot as plt
-
         fig, ax = plt.subplots()
         result_fig = plot_coefficients(mock_st_result(), ax=ax)
         assert isinstance(result_fig, Figure)
@@ -53,8 +46,6 @@ class TestPlotErrors:
         assert isinstance(fig, Figure)
 
     def test_with_ax(self, mock_st_result):
-        import matplotlib.pyplot as plt
-
         fig, ax = plt.subplots()
         result_fig = plot_errors(mock_st_result(), ax=ax)
         assert isinstance(result_fig, Figure)
@@ -101,8 +92,6 @@ class TestPlotErgodicity:
         assert isinstance(fig, Figure)
 
     def test_with_ax(self, mock_de_result):
-        import matplotlib.pyplot as plt
-
         fig, ax = plt.subplots()
         result_fig = plot_ergodicity(mock_de_result(), ax=ax)
         assert isinstance(result_fig, Figure)
@@ -115,8 +104,6 @@ class TestPlotModel:
         assert isinstance(fig, Figure)
 
     def test_with_ax(self):
-        import matplotlib.pyplot as plt
-
         fig, ax = plt.subplots()
         result_fig = plot_model([1, 2, 10], ax=ax)
         assert isinstance(result_fig, Figure)

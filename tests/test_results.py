@@ -1,9 +1,8 @@
 """Tests for result dataclasses."""
 
 import numpy as np
-import pytest
 
-from dda_py.results import STResult, CTResult, DEResult
+from dda_py.results import CTResult, DEResult, STResult
 
 
 class TestSTResult:

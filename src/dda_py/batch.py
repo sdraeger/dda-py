@@ -8,13 +8,31 @@ import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 
-if TYPE_CHECKING:
+from .api import run_ct, run_de, run_st
+from .results import CTResult, DEResult, STResult
+
+try:
     import pandas as pd
-    from .results import CTResult, DEResult, STResult
+except ImportError:  # pragma: no cover - exercised when optional extra is absent.
+    pd = None
+
+try:
+    from tqdm import tqdm
+except ImportError:  # pragma: no cover - exercised when optional extra is absent.
+    tqdm = None
+
+
+def _require_pandas():
+    if pd is None:
+        raise ImportError(
+            "pandas is required for to_dataframe(). "
+            "Install with: pip install 'dda-py[pandas]'"
+        )
+    return pd
 
 
 @dataclass
@@ -63,13 +81,7 @@ class GroupResult:
 
     def to_dataframe(self) -> "pd.DataFrame":
         """Convert to long-format DataFrame."""
-        try:
-            import pandas as pd
-        except ImportError:
-            raise ImportError(
-                "pandas is required for to_dataframe(). "
-                "Install with: pip install 'dda-py[pandas]'"
-            )
+        pandas = _require_pandas()
         rows: list[dict[str, Any]] = []
         for subj_idx, subj_label in enumerate(self.subject_labels):
             for ch_idx, ch_label in enumerate(self.channel_labels):
@@ -85,19 +97,15 @@ class GroupResult:
                         )
                     row["error"] = float(self.errors[subj_idx, ch_idx, win_idx])
                     rows.append(row)
-        return pd.DataFrame(rows)
+        return pandas.DataFrame(rows)
 
 
 def _get_run_func(variant: str):
     """Get the run function for a variant."""
-    from .api import run_ct, run_de, run_st
-
     dispatch = {"st": run_st, "ct": run_ct, "de": run_de}
     key = variant.lower()
     if key not in dispatch:
-        raise ValueError(
-            f"Unknown variant '{variant}'. Must be one of: st, ct, de"
-        )
+        raise ValueError(f"Unknown variant '{variant}'. Must be one of: st, ct, de")
     return dispatch[key]
 
 
@@ -171,15 +179,8 @@ def run_batch(
         run_func = _get_run_func(variant)
         iterator = enumerate(files)
 
-        try:
-            from tqdm import tqdm
-
-            if progress:
-                iterator = tqdm(
-                    list(iterator), desc="DDA batch", unit="file"
-                )
-        except ImportError:
-            pass
+        if progress and tqdm is not None:
+            iterator = tqdm(list(iterator), desc="DDA batch", unit="file")
 
         for idx, file_path in iterator:
             if progress and "tqdm" not in sys.modules:
@@ -192,9 +193,7 @@ def run_batch(
             result = run_func(data, **run_kwargs)
             results.append(result)
     else:
-        task_args = [
-            (f, variant, run_kwargs) for f in files
-        ]
+        task_args = [(f, variant, run_kwargs) for f in files]
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:
             futures = {
                 executor.submit(_process_file, args): i
@@ -232,8 +231,6 @@ def collect_results(
     Returns:
         GroupResult with 4D coefficient array.
     """
-    from .results import CTResult, DEResult, STResult
-
     if not results:
         raise ValueError("Cannot collect empty results list")
 
@@ -254,8 +251,7 @@ def collect_results(
         min_win = min(r.n_windows for r in results)
         if any(r.n_windows != min_win for r in results):
             warnings.warn(
-                f"Window counts vary across subjects. "
-                f"Truncating to minimum: {min_win}",
+                f"Window counts vary across subjects. Truncating to minimum: {min_win}",
                 stacklevel=2,
             )
 
@@ -263,9 +259,7 @@ def collect_results(
             [r.ergodicity[:min_win].reshape(1, min_win, 1) for r in results],
             axis=0,
         )
-        errors = np.zeros(
-            (len(results), 1, min_win), dtype=np.float64
-        )
+        errors = np.zeros((len(results), 1, min_win), dtype=np.float64)
         channel_labels = ["ergodicity"]
         variant = "DE"
 
@@ -297,17 +291,14 @@ def collect_results(
         min_win = min(r.n_windows for r in results)
         if any(r.n_windows != min_win for r in results):
             warnings.warn(
-                f"Window counts vary across subjects. "
-                f"Truncating to minimum: {min_win}",
+                f"Window counts vary across subjects. Truncating to minimum: {min_win}",
                 stacklevel=2,
             )
 
         coefficients = np.stack(
             [r.coefficients[:, :min_win, :] for r in results], axis=0
         )
-        errors = np.stack(
-            [r.errors[:, :min_win] for r in results], axis=0
-        )
+        errors = np.stack([r.errors[:, :min_win] for r in results], axis=0)
         channel_labels = ch_labels
     else:
         raise ValueError(f"Unsupported result type: {result_type.__name__}")

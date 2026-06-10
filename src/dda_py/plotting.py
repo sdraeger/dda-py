@@ -6,23 +6,30 @@ from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 import numpy as np
 
-if TYPE_CHECKING:
+from .model_encoding import generate_monomials, monomial_to_text
+
+try:
+    import matplotlib.pyplot as plt
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure
+except ImportError:  # pragma: no cover - exercised when optional extra is absent.
+    plt = None
 
+    if TYPE_CHECKING:
+        from matplotlib.axes import Axes
+        from matplotlib.figure import Figure
+
+if TYPE_CHECKING:
     from .results import CTResult, DEResult, STResult
 
 
 def _require_matplotlib():
-    try:
-        import matplotlib.pyplot as plt
-
-        return plt
-    except ImportError:
+    if plt is None:
         raise ImportError(
             "matplotlib is required for plotting. "
             "Install with: pip install 'dda-py[matplotlib]'"
         )
+    return plt
 
 
 def _get_or_create_axes(
@@ -93,7 +100,9 @@ def plot_coefficients(
         fig = ax.get_figure()
         axes = [ax] if n_plots == 1 else [ax]
     else:
-        fig, axes = plt.subplots(n_plots, 1, figsize=(figsize[0], figsize[1] * n_plots), squeeze=False)
+        fig, axes = plt.subplots(
+            n_plots, 1, figsize=(figsize[0], figsize[1] * n_plots), squeeze=False
+        )
         axes = axes[:, 0]
 
     for plot_idx, coeff_idx in enumerate(coeff_indices):
@@ -172,7 +181,6 @@ def plot_heatmap(
     Returns:
         matplotlib Figure.
     """
-    plt = _require_matplotlib()
     fig, ax = _get_or_create_axes(ax, figsize)
 
     data = result.coefficients[:, :, coeff_index]  # (n_ch, n_win)
@@ -257,8 +265,6 @@ def plot_model(
     Returns:
         matplotlib Figure.
     """
-    from .model_encoding import generate_monomials, monomial_to_text
-
     plt = _require_matplotlib()
     fig, ax = _get_or_create_axes(ax, figsize)
 
@@ -312,9 +318,7 @@ def plot_model(
                 zorder=3,
             )
 
-    ax.set_title(
-        f"Model Space ({num_delays} delays, order {polynomial_order})"
-    )
+    ax.set_title(f"Model Space ({num_delays} delays, order {polynomial_order})")
     ax.set_aspect("equal")
     fig.tight_layout()
     return fig

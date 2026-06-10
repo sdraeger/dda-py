@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 type: software
 title: "dda-py: Python Wrapper for Delay Differential Analysis"
-version: 0.4.2
+version: 0.4.3
 date-released: 2026-06-09
 url: "https://github.com/sdraeger/dda-py"
 repository-code: "https://github.com/sdraeger/dda-py"

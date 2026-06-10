@@ -7,22 +7,20 @@ to running the DDA binary directly via command-line.
 
 import os
 import subprocess
-
-# Add src to path for imports
-import sys
 import tempfile
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 from dda_py.generated import (
+    BINARY_NAME,
+    REQUIRES_SHELL_WRAPPER,
     VARIANT_REGISTRY,
     DDARequest,
     DDARunner,
     generate_select_mask,
+    get_variant_by_abbrev,
 )
 
 
@@ -103,8 +101,6 @@ def run_dda_cli_direct(
 
     Returns dict with results for each variant
     """
-    from dda_py.generated import REQUIRES_SHELL_WRAPPER
-
     # Create temp output file
     temp_dir = tempfile.gettempdir()
     output_base = os.path.join(temp_dir, f"dda_cli_test_{os.getpid()}")
@@ -717,14 +713,10 @@ class TestConstants:
 
     def test_binary_name_constant(self):
         """Test BINARY_NAME constant is set"""
-        from dda_py.generated import BINARY_NAME
-
         assert BINARY_NAME == "run_DDA_AsciiEdf"
 
     def test_variant_registry_complete(self):
         """Test all expected variants are in registry"""
-        from dda_py.generated import VARIANT_REGISTRY
-
         expected_variants = ["ST", "CT", "CD", "DE", "SY"]
         actual_variants = [v.abbreviation for v in VARIANT_REGISTRY]
 
@@ -733,8 +725,6 @@ class TestConstants:
 
     def test_variant_stride_values(self):
         """Test variant stride values are correct"""
-        from dda_py.generated import get_variant_by_abbrev
-
         assert get_variant_by_abbrev("ST").stride == 4
         assert get_variant_by_abbrev("CT").stride == 4
         assert get_variant_by_abbrev("CD").stride == 2
@@ -743,8 +733,6 @@ class TestConstants:
 
     def test_select_mask_generation(self):
         """Test SELECT mask generation"""
-        from dda_py.generated import generate_select_mask
-
         # Test ST only
         mask = generate_select_mask(["ST"])
         assert mask == [1, 0, 0, 0, 0, 0]

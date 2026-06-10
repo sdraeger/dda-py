@@ -4,13 +4,40 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, List, Optional, Union
 
 import numpy as np
 
-if TYPE_CHECKING:
+from .results import CTResult, STResult
+
+try:
     import pandas as pd
-    from .results import CTResult, STResult
+except ImportError:  # pragma: no cover - exercised when optional extra is absent.
+    pd = None
+
+try:
+    from scipy.stats import ranksums, ttest_ind
+except ImportError:  # pragma: no cover - exercised when optional extra is absent.
+    ranksums = None
+    ttest_ind = None
+
+
+def _require_pandas():
+    if pd is None:
+        raise ImportError(
+            "pandas is required for to_dataframe(). "
+            "Install with: pip install 'dda-py[pandas]'"
+        )
+    return pd
+
+
+def _require_scipy_stats():
+    if ranksums is None or ttest_ind is None:
+        raise ImportError(
+            "scipy is required for compare_windows(). "
+            "Install with: pip install 'dda-py[scipy]'"
+        )
+    return ranksums, ttest_ind
 
 
 @dataclass
@@ -33,13 +60,7 @@ class PermutationResult:
 
     def to_dataframe(self) -> "pd.DataFrame":
         """Convert to DataFrame with channel, coefficient, observed_stat, p_value."""
-        try:
-            import pandas as pd
-        except ImportError:
-            raise ImportError(
-                "pandas is required for to_dataframe(). "
-                "Install with: pip install 'dda-py[pandas]'"
-            )
+        pandas = _require_pandas()
         rows: list[dict[str, Any]] = []
         n_ch, n_coeff = self.observed_stat.shape
         for ch in range(n_ch):
@@ -52,7 +73,7 @@ class PermutationResult:
                         "p_value": float(self.p_value[ch, c]),
                     }
                 )
-        return pd.DataFrame(rows)
+        return pandas.DataFrame(rows)
 
 
 @dataclass
@@ -69,13 +90,7 @@ class EffectSizeResult:
 
     def to_dataframe(self) -> "pd.DataFrame":
         """Convert to DataFrame."""
-        try:
-            import pandas as pd
-        except ImportError:
-            raise ImportError(
-                "pandas is required for to_dataframe(). "
-                "Install with: pip install 'dda-py[pandas]'"
-            )
+        pandas = _require_pandas()
         rows: list[dict[str, Any]] = []
         n_ch, n_coeff = self.cohens_d.shape
         for ch_idx, label in enumerate(self.channel_labels):
@@ -87,7 +102,7 @@ class EffectSizeResult:
                         "cohens_d": float(self.cohens_d[ch_idx, c]),
                     }
                 )
-        return pd.DataFrame(rows)
+        return pandas.DataFrame(rows)
 
 
 @dataclass
@@ -108,13 +123,7 @@ class WindowComparisonResult:
 
     def to_dataframe(self) -> "pd.DataFrame":
         """Convert to DataFrame."""
-        try:
-            import pandas as pd
-        except ImportError:
-            raise ImportError(
-                "pandas is required for to_dataframe(). "
-                "Install with: pip install 'dda-py[pandas]'"
-            )
+        pandas = _require_pandas()
         rows: list[dict[str, Any]] = []
         n_ch, n_coeff = self.stat.shape
         for ch in range(n_ch):
@@ -129,7 +138,7 @@ class WindowComparisonResult:
                         "test_mean": float(self.test_mean[ch, c]),
                     }
                 )
-        return pd.DataFrame(rows)
+        return pandas.DataFrame(rows)
 
 
 def _extract_coefficients(
@@ -140,8 +149,6 @@ def _extract_coefficients(
     Returns:
         Array of shape (n_subjects, n_channels, n_coeffs).
     """
-    from .results import CTResult, STResult
-
     if not results:
         raise ValueError("Cannot extract from empty results list")
 
@@ -211,9 +218,7 @@ def permutation_test(
     observed = stat_fun(data_a, data_b)  # (n_ch, n_coeff)
 
     rng = np.random.RandomState(seed)
-    null_dist = np.empty(
-        (n_permutations, *observed.shape), dtype=np.float64
-    )
+    null_dist = np.empty((n_permutations, *observed.shape), dtype=np.float64)
 
     for i in range(n_permutations):
         perm = rng.permutation(n_total)
@@ -223,17 +228,13 @@ def permutation_test(
 
     # Compute p-values
     if tail == 0:
-        p_value = (
-            np.sum(np.abs(null_dist) >= np.abs(observed), axis=0) + 1
-        ) / (n_permutations + 1)
+        p_value = (np.sum(np.abs(null_dist) >= np.abs(observed), axis=0) + 1) / (
+            n_permutations + 1
+        )
     elif tail == 1:
-        p_value = (np.sum(null_dist >= observed, axis=0) + 1) / (
-            n_permutations + 1
-        )
+        p_value = (np.sum(null_dist >= observed, axis=0) + 1) / (n_permutations + 1)
     elif tail == -1:
-        p_value = (np.sum(null_dist <= observed, axis=0) + 1) / (
-            n_permutations + 1
-        )
+        p_value = (np.sum(null_dist <= observed, axis=0) + 1) / (n_permutations + 1)
     else:
         raise ValueError(f"tail must be -1, 0, or 1, got {tail}")
 
@@ -263,14 +264,7 @@ def compare_windows(
     Returns:
         WindowComparisonResult.
     """
-    try:
-        from scipy.stats import ranksums, ttest_ind
-    except ImportError:
-        raise ImportError(
-            "scipy is required for compare_windows(). "
-            "Install with: pip install 'dda-py[scipy]'"
-        )
-
+    ranksums_func, ttest_ind_func = _require_scipy_stats()
     coeffs = result.coefficients  # (n_ch, n_win, n_coeff)
 
     if isinstance(baseline_windows, slice):
@@ -287,7 +281,7 @@ def compare_windows(
     stat_arr = np.empty((n_ch, n_coeff), dtype=np.float64)
     p_arr = np.empty((n_ch, n_coeff), dtype=np.float64)
 
-    test_func = ttest_ind if method == "ttest" else ranksums
+    test_func = ttest_ind_func if method == "ttest" else ranksums_func
 
     for ch in range(n_ch):
         for c in range(n_coeff):
@@ -314,8 +308,6 @@ def compute_effect_size(
     Returns:
         EffectSizeResult.
     """
-    from .results import STResult
-
     data_a = _extract_coefficients(group_a)  # (n_a, n_ch, n_coeff)
     data_b = _extract_coefficients(group_b)
 
@@ -329,9 +321,7 @@ def compute_effect_size(
     var_b = data_b.var(axis=0, ddof=1)
 
     # Pooled standard deviation
-    pooled_std = np.sqrt(
-        ((n_a - 1) * var_a + (n_b - 1) * var_b) / (n_a + n_b - 2)
-    )
+    pooled_std = np.sqrt(((n_a - 1) * var_a + (n_b - 1) * var_b) / (n_a + n_b - 2))
 
     # Avoid division by zero
     with warnings.catch_warnings():

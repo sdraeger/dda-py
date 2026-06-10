@@ -162,4 +162,3 @@ def test_model_matrix_to_encoding_matches_julia_example():
         num_delays=2,
         polynomial_order=3,
     ) == [1, 2, 6]
-

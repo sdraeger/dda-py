@@ -111,9 +111,7 @@ class DDARunner:
         )
 
         effective_model_dimension = (
-            model_dimension
-            if model_dimension is not None
-            else DEFAULT_MODEL_DIMENSION
+            model_dimension if model_dimension is not None else DEFAULT_MODEL_DIMENSION
         )
         effective_polynomial_order = (
             polynomial_order

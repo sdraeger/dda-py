@@ -21,10 +21,12 @@ MNE integration (optional)::
     raw = mne.io.read_raw_edf("data.edf", preload=True)
     result = run_st(raw, delays=(7, 10), wl=200, ws=100)
 """
+
 from __future__ import annotations
 
 import os
 import tempfile
+from itertools import combinations
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -32,6 +34,11 @@ import numpy as np
 from .results import CTResult, DEResult, STResult
 from .runner import DDARequest, DDARunner, Defaults
 from .variants import DEFAULT_DELAYS
+
+try:
+    import mne
+except ImportError:  # pragma: no cover - exercised when optional extra is absent.
+    mne = None
 
 
 def _extract_data(
@@ -47,22 +54,18 @@ def _extract_data(
         (data_array, sfreq, channel_labels)
     """
     # Try MNE first
-    try:
-        import mne
-        if isinstance(data, mne.io.BaseRaw):
-            if channels is not None:
-                if all(isinstance(c, str) for c in channels):
-                    picks = mne.pick_channels(data.ch_names, include=channels)
-                else:
-                    picks = [int(c) for c in channels]
+    if mne is not None and isinstance(data, mne.io.BaseRaw):
+        if channels is not None:
+            if all(isinstance(c, str) for c in channels):
+                picks = mne.pick_channels(data.ch_names, include=channels)
             else:
-                picks = list(range(len(data.ch_names)))
+                picks = [int(c) for c in channels]
+        else:
+            picks = list(range(len(data.ch_names)))
 
-            raw_data, _ = data[picks, :]
-            ch_labels = [data.ch_names[i] for i in picks]
-            return raw_data, data.info["sfreq"], ch_labels
-    except ImportError:
-        pass
+        raw_data, _ = data[picks, :]
+        ch_labels = [data.ch_names[i] for i in picks]
+        return raw_data, data.info["sfreq"], ch_labels
 
     # numpy array path
     if not isinstance(data, np.ndarray):
@@ -113,34 +116,7 @@ def _raw_to_result_st(
     params: Dict[str, Any],
 ) -> STResult:
     """Convert DDARunner raw dict output to STResult."""
-    channels_data = raw_result["channels"]
-    n_channels = len(channels_data)
-    n_windows = len(channels_data[0]["timepoints"]) if channels_data else 0
-
-    if n_windows == 0:
-        return STResult(
-            coefficients=np.empty((n_channels, 0, 0)),
-            errors=np.empty((n_channels, 0)),
-            window_starts=np.empty(0, dtype=np.int64),
-            window_ends=np.empty(0, dtype=np.int64),
-            channel_labels=channel_labels,
-            params=params,
-        )
-
-    n_coeffs = len(channels_data[0]["timepoints"][0]["coefficients"])
-
-    coefficients = np.zeros((n_channels, n_windows, n_coeffs))
-    errors = np.zeros((n_channels, n_windows))
-    window_starts = np.zeros(n_windows, dtype=np.int64)
-    window_ends = np.zeros(n_windows, dtype=np.int64)
-
-    for ch_idx, ch_data in enumerate(channels_data):
-        for win_idx, tp in enumerate(ch_data["timepoints"]):
-            coefficients[ch_idx, win_idx, :] = tp["coefficients"]
-            errors[ch_idx, win_idx] = tp["error"]
-            if ch_idx == 0:
-                window_starts[win_idx] = tp["window_start"]
-                window_ends[win_idx] = tp["window_end"]
+    coefficients, errors, window_starts, window_ends = _coefficient_arrays(raw_result)
 
     return STResult(
         coefficients=coefficients,
@@ -158,34 +134,7 @@ def _raw_to_result_ct(
     params: Dict[str, Any],
 ) -> CTResult:
     """Convert DDARunner raw dict output to CTResult."""
-    channels_data = raw_result["channels"]
-    n_pairs = len(channels_data)
-    n_windows = len(channels_data[0]["timepoints"]) if channels_data else 0
-
-    if n_windows == 0:
-        return CTResult(
-            coefficients=np.empty((n_pairs, 0, 0)),
-            errors=np.empty((n_pairs, 0)),
-            window_starts=np.empty(0, dtype=np.int64),
-            window_ends=np.empty(0, dtype=np.int64),
-            pair_labels=pair_labels,
-            params=params,
-        )
-
-    n_coeffs = len(channels_data[0]["timepoints"][0]["coefficients"])
-
-    coefficients = np.zeros((n_pairs, n_windows, n_coeffs))
-    errors = np.zeros((n_pairs, n_windows))
-    window_starts = np.zeros(n_windows, dtype=np.int64)
-    window_ends = np.zeros(n_windows, dtype=np.int64)
-
-    for pair_idx, pair_data in enumerate(channels_data):
-        for win_idx, tp in enumerate(pair_data["timepoints"]):
-            coefficients[pair_idx, win_idx, :] = tp["coefficients"]
-            errors[pair_idx, win_idx] = tp["error"]
-            if pair_idx == 0:
-                window_starts[win_idx] = tp["window_start"]
-                window_ends[win_idx] = tp["window_end"]
+    coefficients, errors, window_starts, window_ends = _coefficient_arrays(raw_result)
 
     return CTResult(
         coefficients=coefficients,
@@ -230,12 +179,42 @@ def _raw_to_result_de(
     )
 
 
+def _coefficient_arrays(
+    raw_result: Dict[str, Any],
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    channels_data = raw_result["channels"]
+    n_entities = len(channels_data)
+    n_windows = len(channels_data[0]["timepoints"]) if channels_data else 0
+    if n_windows == 0:
+        return (
+            np.empty((n_entities, 0, 0)),
+            np.empty((n_entities, 0)),
+            np.empty(0, dtype=np.int64),
+            np.empty(0, dtype=np.int64),
+        )
+
+    n_coeffs = len(channels_data[0]["timepoints"][0]["coefficients"])
+    coefficients = np.zeros((n_entities, n_windows, n_coeffs))
+    errors = np.zeros((n_entities, n_windows))
+    window_starts = np.zeros(n_windows, dtype=np.int64)
+    window_ends = np.zeros(n_windows, dtype=np.int64)
+
+    for entity_idx, entity_data in enumerate(channels_data):
+        for win_idx, timepoint in enumerate(entity_data["timepoints"]):
+            coefficients[entity_idx, win_idx, :] = timepoint["coefficients"]
+            errors[entity_idx, win_idx] = timepoint["error"]
+            if entity_idx == 0:
+                window_starts[win_idx] = timepoint["window_start"]
+                window_ends[win_idx] = timepoint["window_end"]
+    return coefficients, errors, window_starts, window_ends
+
+
 def _make_params_dict(
     sfreq: float,
     delays: Sequence[int],
     model: List[int],
-    wl: int,
-    ws: int,
+    wl: Optional[int],
+    ws: Optional[int],
     model_dimension: int,
     polynomial_order: int,
     num_tau: int,
@@ -250,6 +229,59 @@ def _make_params_dict(
         "polynomial_order": polynomial_order,
         "num_tau": num_tau,
     }
+
+
+def _run_raw_variant(
+    *,
+    flavor: str,
+    data: Union[np.ndarray, Any],
+    sfreq: float,
+    delays: Sequence[int],
+    model: Optional[List[int]],
+    wl: Optional[int],
+    ws: Optional[int],
+    channels: Optional[Union[List[int], List[str]]],
+    binary_path: Optional[str],
+    model_dimension: int,
+    polynomial_order: int,
+    num_tau: int,
+    ct_wl: Optional[int] = None,
+    ct_ws: Optional[int] = None,
+) -> Tuple[Dict[str, Any], List[str], Dict[str, Any]]:
+    model_terms = list(Defaults.MODEL_PARAMS) if model is None else list(model)
+    arr, sfreq_actual, ch_labels = _extract_data(data, sfreq, channels)
+
+    temp_path = _write_temp_ascii(arr)
+    try:
+        request = DDARequest(
+            file_path=temp_path,
+            channels=list(range(arr.shape[0])),
+            variants=[flavor],
+            window_length=wl,
+            window_step=ws,
+            delays=list(delays),
+            model_params=model_terms,
+            ct_window_length=ct_wl,
+            ct_window_step=ct_ws,
+            model_dimension=model_dimension,
+            polynomial_order=polynomial_order,
+            num_tau=num_tau,
+        )
+        raw_result = DDARunner(binary_path=binary_path).run(request)[flavor]
+    finally:
+        os.unlink(temp_path)
+
+    params = _make_params_dict(
+        sfreq_actual,
+        delays,
+        model_terms,
+        wl,
+        ws,
+        model_dimension,
+        polynomial_order,
+        num_tau,
+    )
+    return raw_result, ch_labels, params
 
 
 def run_st(
@@ -287,34 +319,21 @@ def run_st(
     Returns:
         :class:`STResult` with numpy arrays.
     """
-    if model is None:
-        model = list(Defaults.MODEL_PARAMS)
-    arr, sfreq_actual, ch_labels = _extract_data(data, sfreq, channels)
-
-    temp_path = _write_temp_ascii(arr)
-    try:
-        runner = DDARunner(binary_path=binary_path)
-        request = DDARequest(
-            file_path=temp_path,
-            channels=list(range(arr.shape[0])),
-            variants=["ST"],
-            window_length=wl,
-            window_step=ws,
-            delays=list(delays),
-            model_params=model,
-            model_dimension=model_dimension,
-            polynomial_order=polynomial_order,
-            num_tau=num_tau,
-        )
-        raw_results = runner.run(request)
-    finally:
-        os.unlink(temp_path)
-
-    params = _make_params_dict(
-        sfreq_actual, delays, model, wl, ws,
-        model_dimension, polynomial_order, num_tau,
+    raw_result, ch_labels, params = _run_raw_variant(
+        flavor="ST",
+        data=data,
+        sfreq=sfreq,
+        delays=delays,
+        model=model,
+        wl=wl,
+        ws=ws,
+        channels=channels,
+        binary_path=binary_path,
+        model_dimension=model_dimension,
+        polynomial_order=polynomial_order,
+        num_tau=num_tau,
     )
-    return _raw_to_result_st(raw_results["ST"], ch_labels, params)
+    return _raw_to_result_st(raw_result, ch_labels, params)
 
 
 def run_ct(
@@ -358,47 +377,31 @@ def run_ct(
     Raises:
         ValueError: If fewer than 2 channels are provided.
     """
-    if model is None:
-        model = list(Defaults.MODEL_PARAMS)
     arr, sfreq_actual, ch_labels = _extract_data(data, sfreq, channels)
 
     if arr.shape[0] < 2:
         raise ValueError("CT analysis requires at least 2 channels")
 
-    # Generate pair labels
-    pair_labels = []
-    for i in range(len(ch_labels)):
-        for j in range(i + 1, len(ch_labels)):
-            pair_labels.append(f"{ch_labels[i]}-{ch_labels[j]}")
-
-    temp_path = _write_temp_ascii(arr)
-    try:
-        runner = DDARunner(binary_path=binary_path)
-        request = DDARequest(
-            file_path=temp_path,
-            channels=list(range(arr.shape[0])),
-            variants=["CT"],
-            window_length=wl,
-            window_step=ws,
-            delays=list(delays),
-            model_params=model,
-            ct_window_length=ct_wl or wl,
-            ct_window_step=ct_ws or ws,
-            model_dimension=model_dimension,
-            polynomial_order=polynomial_order,
-            num_tau=num_tau,
-        )
-        raw_results = runner.run(request)
-    finally:
-        os.unlink(temp_path)
-
-    params = _make_params_dict(
-        sfreq_actual, delays, model, wl, ws,
-        model_dimension, polynomial_order, num_tau,
+    pair_labels = [f"{left}-{right}" for left, right in combinations(ch_labels, 2)]
+    raw_result, _, params = _run_raw_variant(
+        flavor="CT",
+        data=arr,
+        sfreq=sfreq_actual,
+        delays=delays,
+        model=model,
+        wl=wl,
+        ws=ws,
+        channels=None,
+        binary_path=binary_path,
+        model_dimension=model_dimension,
+        polynomial_order=polynomial_order,
+        num_tau=num_tau,
+        ct_wl=ct_wl or wl,
+        ct_ws=ct_ws or ws,
     )
     params["ct_wl"] = ct_wl or wl
     params["ct_ws"] = ct_ws or ws
-    return _raw_to_result_ct(raw_results["CT"], pair_labels, params)
+    return _raw_to_result_ct(raw_result, pair_labels, params)
 
 
 def run_de(
@@ -437,33 +440,20 @@ def run_de(
     Returns:
         :class:`DEResult` with numpy arrays.
     """
-    if model is None:
-        model = list(Defaults.MODEL_PARAMS)
-    arr, sfreq_actual, ch_labels = _extract_data(data, sfreq, channels)
-
-    temp_path = _write_temp_ascii(arr)
-    try:
-        runner = DDARunner(binary_path=binary_path)
-        request = DDARequest(
-            file_path=temp_path,
-            channels=list(range(arr.shape[0])),
-            variants=["DE"],
-            window_length=wl,
-            window_step=ws,
-            delays=list(delays),
-            model_params=model,
-            ct_window_length=ct_wl or wl,
-            ct_window_step=ct_ws or ws,
-            model_dimension=model_dimension,
-            polynomial_order=polynomial_order,
-            num_tau=num_tau,
-        )
-        raw_results = runner.run(request)
-    finally:
-        os.unlink(temp_path)
-
-    params = _make_params_dict(
-        sfreq_actual, delays, model, wl, ws,
-        model_dimension, polynomial_order, num_tau,
+    raw_result, _, params = _run_raw_variant(
+        flavor="DE",
+        data=data,
+        sfreq=sfreq,
+        delays=delays,
+        model=model,
+        wl=wl,
+        ws=ws,
+        channels=channels,
+        binary_path=binary_path,
+        model_dimension=model_dimension,
+        polynomial_order=polynomial_order,
+        num_tau=num_tau,
+        ct_wl=ct_wl or wl,
+        ct_ws=ct_ws or ws,
     )
-    return _raw_to_result_de(raw_results["DE"], params)
+    return _raw_to_result_de(raw_result, params)

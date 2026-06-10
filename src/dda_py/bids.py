@@ -6,20 +6,32 @@ import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
+from .batch import _get_run_func
+
 if TYPE_CHECKING:
     from .results import CTResult, DEResult, STResult
 
+try:
+    import mne_bids
+    from mne_bids import BIDSPath, read_raw_bids
+except ImportError:  # pragma: no cover - exercised when optional extra is absent.
+    mne_bids = None
+    BIDSPath = None
+    read_raw_bids = None
+
+try:
+    from tqdm import tqdm
+except ImportError:  # pragma: no cover - exercised when optional extra is absent.
+    tqdm = None
+
 
 def _require_mne_bids():
-    try:
-        import mne_bids
-
-        return mne_bids
-    except ImportError:
+    if mne_bids is None:
         raise ImportError(
             "mne-bids is required for BIDS integration. "
             "Install with: pip install 'dda-py[mne-bids]'"
         )
+    return mne_bids
 
 
 @dataclass
@@ -147,10 +159,7 @@ def run_bids(
     Returns:
         Dict mapping recording label to result object.
     """
-    mne_bids = _require_mne_bids()
-    import mne
-
-    from .batch import _get_run_func
+    _require_mne_bids()
 
     recordings = find_recordings(
         bids_root,
@@ -181,15 +190,8 @@ def run_bids(
     results: Dict[str, Any] = {}
     iterator = enumerate(recordings)
 
-    try:
-        from tqdm import tqdm
-
-        if progress:
-            iterator = tqdm(
-                list(iterator), desc="BIDS DDA", unit="recording"
-            )
-    except ImportError:
-        pass
+    if progress and tqdm is not None:
+        iterator = tqdm(list(iterator), desc="BIDS DDA", unit="recording")
 
     for idx, rec in iterator:
         if progress and "tqdm" not in sys.modules:
@@ -199,8 +201,6 @@ def run_bids(
             )
 
         # Read via mne-bids to get MNE Raw object with correct sfreq
-        from mne_bids import BIDSPath, read_raw_bids
-
         bp = BIDSPath(
             subject=rec.subject,
             session=rec.session,

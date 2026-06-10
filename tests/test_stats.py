@@ -3,11 +3,13 @@
 import numpy as np
 import pytest
 
+from dda_py.results import STResult
 from dda_py.stats import (
     EffectSizeResult,
     PermutationResult,
     WindowComparisonResult,
     _extract_coefficients,
+    compare_windows,
     compute_effect_size,
     permutation_test,
 )
@@ -67,8 +69,6 @@ class TestPermutationTest:
         assert np.all(result.p_value > 0.05)
 
     def test_shifted_groups_low_pvalue(self, mock_st_result):
-        from dda_py.results import STResult
-
         group_a = [mock_st_result(seed=i) for i in range(20)]
         # Create group_b with coefficients shifted by 5.0
         group_b = []
@@ -116,7 +116,7 @@ class TestPermutationTest:
         assert result.observed_stat.shape == (3, 3)
 
     def test_to_dataframe(self, mock_st_result):
-        pd = pytest.importorskip("pandas")
+        pytest.importorskip("pandas")
         group_a = [mock_st_result(seed=i) for i in range(5)]
         group_b = [mock_st_result(seed=i + 50) for i in range(5)]
         result = permutation_test(group_a, group_b, n_permutations=50, seed=42)
@@ -141,7 +141,7 @@ class TestComputeEffectSize:
         np.testing.assert_allclose(result.cohens_d, 0.0, atol=1e-10)
 
     def test_to_dataframe(self, mock_st_result):
-        pd = pytest.importorskip("pandas")
+        pytest.importorskip("pandas")
         group_a = [mock_st_result(seed=i) for i in range(5)]
         group_b = [mock_st_result(seed=i + 50) for i in range(5)]
         result = compute_effect_size(group_a, group_b)
@@ -153,10 +153,11 @@ class TestComputeEffectSize:
 class TestCompareWindows:
     def test_returns_comparison_result(self, mock_st_result):
         pytest.importorskip("scipy")
-        from dda_py.stats import compare_windows
 
         result = mock_st_result(n_win=20, seed=42)
-        comp = compare_windows(result, baseline_windows=slice(0, 10), test_windows=slice(10, 20))
+        comp = compare_windows(
+            result, baseline_windows=slice(0, 10), test_windows=slice(10, 20)
+        )
 
         assert isinstance(comp, WindowComparisonResult)
         assert comp.stat.shape == (3, 3)
@@ -166,7 +167,6 @@ class TestCompareWindows:
 
     def test_with_list_indices(self, mock_st_result):
         pytest.importorskip("scipy")
-        from dda_py.stats import compare_windows
 
         result = mock_st_result(n_win=20, seed=42)
         comp = compare_windows(
@@ -178,7 +178,6 @@ class TestCompareWindows:
 
     def test_ranksum_method(self, mock_st_result):
         pytest.importorskip("scipy")
-        from dda_py.stats import compare_windows
 
         result = mock_st_result(n_win=20, seed=42)
         comp = compare_windows(

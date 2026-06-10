@@ -1,7 +1,9 @@
 """DDA Variant definitions — DDA Specification v1.0.0"""
 
+import os
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import List, Optional
 
 # =============================================================================
@@ -24,8 +26,10 @@ SUPPORTED_PLATFORMS = [
 # ENUMS
 # =============================================================================
 
+
 class ChannelFormat(Enum):
     """Channel format for variant input."""
+
     INDIVIDUAL = "individual"
     PAIRS = "pairs"
     DIRECTED_PAIRS = "directed_pairs"
@@ -33,6 +37,7 @@ class ChannelFormat(Enum):
 
 class FileType(Enum):
     """Supported input file types."""
+
     EDF = "EDF"
     ASCII = "ASCII"
 
@@ -62,9 +67,11 @@ class FileType(Enum):
 # DATA CLASSES
 # =============================================================================
 
+
 @dataclass(frozen=True)
 class OutputColumns:
     """Output column specification for a variant."""
+
     coefficients: int
     has_error: bool
     description: str
@@ -73,6 +80,7 @@ class OutputColumns:
 @dataclass(frozen=True)
 class VariantMetadata:
     """Complete variant metadata."""
+
     abbreviation: str
     name: str
     position: int
@@ -119,7 +127,10 @@ CT = VariantMetadata(
     output_suffix="_CT",
     stride=4,
     reserved=False,
-    required_params=("-WL_CT", "-WS_CT", ),
+    required_params=(
+        "-WL_CT",
+        "-WS_CT",
+    ),
     channel_format=ChannelFormat.PAIRS,
     output_columns=OutputColumns(
         coefficients=3,
@@ -137,7 +148,10 @@ CD = VariantMetadata(
     output_suffix="_CD_DDA_ST",
     stride=2,
     reserved=False,
-    required_params=("-WL_CT", "-WS_CT", ),
+    required_params=(
+        "-WL_CT",
+        "-WS_CT",
+    ),
     channel_format=ChannelFormat.DIRECTED_PAIRS,
     output_columns=OutputColumns(
         coefficients=1,
@@ -173,7 +187,10 @@ DE = VariantMetadata(
     output_suffix="_DE",
     stride=1,
     reserved=False,
-    required_params=("-WL_CT", "-WS_CT", ),
+    required_params=(
+        "-WL_CT",
+        "-WS_CT",
+    ),
     channel_format=ChannelFormat.INDIVIDUAL,
     output_columns=OutputColumns(
         coefficients=0,
@@ -202,7 +219,6 @@ SY = VariantMetadata(
 )
 
 
-
 # All variants in SELECT mask order
 VARIANT_REGISTRY: tuple = (
     ST,
@@ -228,8 +244,10 @@ VARIANT_ORDER: tuple = (
 # SELECT MASK POSITIONS
 # =============================================================================
 
+
 class SelectMaskPositions:
     """Position constants for SELECT mask."""
+
     ST: int = 0
     CT: int = 1
     CD: int = 2
@@ -241,6 +259,7 @@ class SelectMaskPositions:
 # =============================================================================
 # UTILITY FUNCTIONS
 # =============================================================================
+
 
 def get_variant_by_abbrev(abbrev: str) -> Optional[VariantMetadata]:
     """Look up variant by abbreviation."""
@@ -362,9 +381,6 @@ def find_binary(explicit_path: Optional[str] = None) -> Optional[str]:
         >>> path = find_binary()  # Auto-discover
         >>> path = find_binary("/opt/dda/bin/run_DDA_AsciiEdf")  # Explicit
     """
-    import os
-    from pathlib import Path
-
     # 1. Explicit path
     if explicit_path:
         p = Path(explicit_path).expanduser()

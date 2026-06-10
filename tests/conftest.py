@@ -1,9 +1,13 @@
 """Shared test fixtures for dda-py tests."""
 
+import os
+
 import numpy as np
 import pytest
 
-from dda_py.results import STResult, CTResult, DEResult
+from dda_py.results import CTResult, DEResult, STResult
+
+os.environ.setdefault("MPLBACKEND", "Agg")
 
 
 @pytest.fixture

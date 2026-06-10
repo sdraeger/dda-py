@@ -7,7 +7,23 @@ This demonstrates both the high-level and low-level APIs.
 # === High-Level API (recommended) ===
 
 import numpy as np
-from dda_py import run_st, run_ct, run_de
+
+from dda_py import (
+    BINARY_NAME,
+    DDARequest,
+    DDARunner,
+    Defaults,
+    Flags,
+    decode_model_encoding,
+    generate_select_mask,
+    get_variant_by_abbrev,
+    parse_select_mask,
+    run_ct,
+    run_DDA,
+    run_de,
+    run_st,
+    visualize_model_space,
+)
 
 # Generate synthetic data: 3 channels, 10000 samples
 data = np.random.randn(3, 10000)
@@ -33,8 +49,6 @@ print(f"\nDE ergodicity shape: {de_result.ergodicity.shape}")
 
 
 # === Low-Level API ===
-
-from dda_py import DDARequest, DDARunner, run_DDA
 
 runner = DDARunner()  # auto-discovers binary
 
@@ -71,17 +85,6 @@ structured = run_DDA(
 print(f"\nStructured flavors: {[v.variant_id for v in structured.variant_results]}")
 
 # === Model Encoding ===
-
-from dda_py import (
-    visualize_model_space,
-    decode_model_encoding,
-    get_variant_by_abbrev,
-    generate_select_mask,
-    parse_select_mask,
-    BINARY_NAME,
-    Defaults,
-    Flags,
-)
 
 # Visualize all available monomials
 print(visualize_model_space(2, 4, highlight_encoding=[1, 2, 10]))

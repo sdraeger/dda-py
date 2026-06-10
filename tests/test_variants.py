@@ -11,14 +11,11 @@ The tests in this file verify that:
 4. Running the binary with spec-generated commands produces expected results
 """
 
-import sys
+import math
 import tempfile
 from pathlib import Path
 
 import pytest
-
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from dda_py.variants import (
     BINARY_NAME,
@@ -798,8 +795,6 @@ class TestBinaryIntegration:
             # 3 channels, 1000 samples
             for i in range(1000):
                 # Simple sinusoidal data
-                import math
-
                 ch1 = math.sin(i * 0.1)
                 ch2 = math.cos(i * 0.1)
                 ch3 = math.sin(i * 0.05)

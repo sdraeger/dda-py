@@ -4,11 +4,14 @@ Integration tests are marked with @pytest.mark.integration and require
 the DDA binary to be available on the system.
 """
 
+import os
+
 import numpy as np
 import pytest
 
+from dda_py import run_ct, run_de, run_st
 from dda_py.api import _extract_data, _write_temp_ascii
-from dda_py.results import STResult, CTResult, DEResult
+from dda_py.results import CTResult, DEResult, STResult
 from dda_py.variants import find_binary
 
 
@@ -53,7 +56,6 @@ class TestWriteTempAscii:
     """Test _write_temp_ascii helper."""
 
     def test_writes_transposed(self):
-        import os
         data = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])  # 2 channels, 3 samples
         path = _write_temp_ascii(data)
         try:
@@ -65,7 +67,6 @@ class TestWriteTempAscii:
             os.unlink(path)
 
     def test_temp_file_suffix(self):
-        import os
         data = np.random.randn(1, 100)
         path = _write_temp_ascii(data)
         try:
@@ -88,7 +89,6 @@ class TestRunST(_RequiresBinary):
     """Integration tests for run_st (require DDA binary)."""
 
     def test_basic_run(self):
-        from dda_py import run_st
         data = np.random.randn(2, 2000)
         result = run_st(data, sfreq=256.0, delays=(7, 10), wl=200, ws=100)
         assert isinstance(result, STResult)
@@ -97,13 +97,11 @@ class TestRunST(_RequiresBinary):
         assert result.coefficients.shape[0] == 2
 
     def test_single_channel(self):
-        from dda_py import run_st
         data = np.random.randn(1, 2000)
         result = run_st(data, sfreq=256.0, delays=(7, 10), wl=200, ws=100)
         assert result.n_channels == 1
 
     def test_1d_input(self):
-        from dda_py import run_st
         data = np.random.randn(2000)
         result = run_st(data, sfreq=256.0, delays=(7, 10), wl=200, ws=100)
         assert result.n_channels == 1
@@ -114,14 +112,12 @@ class TestRunCT(_RequiresBinary):
     """Integration tests for run_ct (require DDA binary)."""
 
     def test_basic_run(self):
-        from dda_py import run_ct
         data = np.random.randn(3, 2000)
         result = run_ct(data, sfreq=256.0, delays=(7, 10), wl=200, ws=100)
         assert isinstance(result, CTResult)
         assert result.n_pairs == 3  # 3 choose 2
 
     def test_too_few_channels(self):
-        from dda_py import run_ct
         data = np.random.randn(1, 2000)
         with pytest.raises(ValueError, match="at least 2 channels"):
             run_ct(data, sfreq=256.0)
@@ -132,7 +128,6 @@ class TestRunDE(_RequiresBinary):
     """Integration tests for run_de (require DDA binary)."""
 
     def test_basic_run(self):
-        from dda_py import run_de
         data = np.random.randn(2, 2000)
         result = run_de(data, sfreq=256.0, delays=(7, 10), wl=200, ws=100)
         assert isinstance(result, DEResult)

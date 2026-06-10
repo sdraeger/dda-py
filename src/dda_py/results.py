@@ -3,15 +3,26 @@
 Each result class wraps numpy arrays with metadata and provides
 convenience methods for conversion to pandas DataFrames.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Dict, Any, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-if TYPE_CHECKING:
+try:
     import pandas as pd
+except ImportError:  # pragma: no cover - exercised when optional extra is absent.
+    pd = None
+
+
+def _require_pandas():
+    if pd is None:
+        raise ImportError(
+            "pandas is required for to_dataframe(). Install with: pip install pandas"
+        )
+    return pd
 
 
 @dataclass
@@ -92,6 +103,7 @@ class STResult:
         channel_labels: Channel name strings.
         params: Parameters used for this analysis run.
     """
+
     coefficients: np.ndarray
     errors: np.ndarray
     window_starts: np.ndarray
@@ -121,13 +133,7 @@ class STResult:
         Raises:
             ImportError: If pandas is not installed.
         """
-        try:
-            import pandas as pd
-        except ImportError:
-            raise ImportError(
-                "pandas is required for to_dataframe(). "
-                "Install with: pip install pandas"
-            )
+        pandas = _require_pandas()
 
         rows = []
         for ch_idx, label in enumerate(self.channel_labels):
@@ -141,7 +147,7 @@ class STResult:
                     row[f"a_{c + 1}"] = float(self.coefficients[ch_idx, win_idx, c])
                 row["error"] = float(self.errors[ch_idx, win_idx])
                 rows.append(row)
-        return pd.DataFrame(rows)
+        return pandas.DataFrame(rows)
 
 
 @dataclass
@@ -156,6 +162,7 @@ class CTResult:
         pair_labels: Pair label strings (e.g. ["ch0-ch1", "ch0-ch2"]).
         params: Parameters used for this analysis run.
     """
+
     coefficients: np.ndarray
     errors: np.ndarray
     window_starts: np.ndarray
@@ -185,13 +192,7 @@ class CTResult:
         Raises:
             ImportError: If pandas is not installed.
         """
-        try:
-            import pandas as pd
-        except ImportError:
-            raise ImportError(
-                "pandas is required for to_dataframe(). "
-                "Install with: pip install pandas"
-            )
+        pandas = _require_pandas()
 
         rows = []
         for pair_idx, label in enumerate(self.pair_labels):
@@ -205,7 +206,7 @@ class CTResult:
                     row[f"a_{c + 1}"] = float(self.coefficients[pair_idx, win_idx, c])
                 row["error"] = float(self.errors[pair_idx, win_idx])
                 rows.append(row)
-        return pd.DataFrame(rows)
+        return pandas.DataFrame(rows)
 
 
 @dataclass
@@ -218,6 +219,7 @@ class DEResult:
         window_ends: Window end sample indices, shape (n_windows,).
         params: Parameters used for this analysis run.
     """
+
     ergodicity: np.ndarray
     window_starts: np.ndarray
     window_ends: np.ndarray
@@ -236,16 +238,12 @@ class DEResult:
         Raises:
             ImportError: If pandas is not installed.
         """
-        try:
-            import pandas as pd
-        except ImportError:
-            raise ImportError(
-                "pandas is required for to_dataframe(). "
-                "Install with: pip install pandas"
-            )
+        pandas = _require_pandas()
 
-        return pd.DataFrame({
-            "window_start": self.window_starts.astype(int),
-            "window_end": self.window_ends.astype(int),
-            "ergodicity": self.ergodicity,
-        })
+        return pandas.DataFrame(
+            {
+                "window_start": self.window_starts.astype(int),
+                "window_end": self.window_ends.astype(int),
+                "ergodicity": self.ergodicity,
+            }
+        )

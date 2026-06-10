@@ -22,14 +22,13 @@ import numpy as np
 from .model_encoding import model_matrix_to_encoding
 from .results import DDAResult, DelayParameters, VariantResultData, WindowParameters
 from .variants import (
-    BINARY_NAME,
     REQUIRES_SHELL_WRAPPER,
     SELECT_MASK_SIZE,
-    VARIANT_REGISTRY,
     FileType,
     generate_select_mask,
     get_variant_by_abbrev,
     parse_select_mask,
+    require_binary,
 )
 
 DEFAULT_MODEL_PARAMS = [1, 2, 10]
@@ -95,7 +94,9 @@ class DDARequest:
         WS: Optional[int] = None,
         delays: Optional[Sequence[int]] = None,
         model_params: Optional[Sequence[int]] = None,
-        model: Optional[Union[Sequence[int], Sequence[Sequence[int]], np.ndarray]] = None,
+        model: Optional[
+            Union[Sequence[int], Sequence[Sequence[int]], np.ndarray]
+        ] = None,
         model_encoding: Optional[
             Union[Sequence[int], Sequence[Sequence[int]], np.ndarray]
         ] = None,
@@ -193,8 +194,6 @@ class DDARunner:
     """Execute ``run_DDA_AsciiEdf`` and parse binary outputs."""
 
     def __init__(self, binary_path: Optional[str] = None):
-        from .variants import require_binary
-
         if binary_path is None:
             self.binary_path = Path(require_binary())
         else:
@@ -252,7 +251,9 @@ class DDARunner:
                 self._cleanup_outputs(output_base, request.variants)
 
     def build_command_string(self, request: DDARequest, output_base: str) -> str:
-        return " ".join(self._build_command(request, output_base, Path(request.file_path)))
+        return " ".join(
+            self._build_command(request, output_base, Path(request.file_path))
+        )
 
     def _execute(self, request: DDARequest) -> Tuple[str, bool]:
         input_file = Path(request.file_path).expanduser()
@@ -266,9 +267,7 @@ class DDARunner:
             subprocess.run(cmd, capture_output=True, text=True, check=True)
         except subprocess.CalledProcessError as exc:
             raise RuntimeError(
-                "DDA execution failed:\n"
-                f"Command: {' '.join(cmd)}\n"
-                f"Error: {exc.stderr}"
+                f"DDA execution failed:\nCommand: {' '.join(cmd)}\nError: {exc.stderr}"
             ) from exc
 
         self._ensure_logical_command_info(request, output_base, input_file)
@@ -277,7 +276,9 @@ class DDARunner:
     def _resolve_output_base(self, request: DDARequest) -> Tuple[str, bool]:
         if request.out_fn:
             return request.out_fn, False
-        return os.path.join(tempfile.gettempdir(), f"dda_output_{os.getpid()}_{uuid.uuid4().hex}"), True
+        return os.path.join(
+            tempfile.gettempdir(), f"dda_output_{os.getpid()}_{uuid.uuid4().hex}"
+        ), True
 
     def _build_command(
         self, request: DDARequest, output_base: str, input_file: Path
@@ -290,7 +291,11 @@ class DDARunner:
         cmd.append("-CH_list")
         cmd.extend(str(ch) for ch in request.binary_channels)
 
-        mask = request.select if request.select is not None else generate_select_mask(request.variants)
+        mask = (
+            request.select
+            if request.select is not None
+            else generate_select_mask(request.variants)
+        )
         cmd.append("-SELECT")
         cmd.extend(str(bit) for bit in mask)
 
@@ -389,7 +394,9 @@ class DDARunner:
             if not channels:
                 continue
             labels = _channel_labels_for_variant(variant, base_labels)
-            results.append(_pack_variant_result(variant_abbrev, variant, channels, request, labels))
+            results.append(
+                _pack_variant_result(variant_abbrev, variant, channels, request, labels)
+            )
         return results
 
     def _parse_output_file_structured(
@@ -531,7 +538,9 @@ def _normalize_channels(channels: Sequence[int]) -> List[int]:
     if not normalized:
         raise ValueError("At least one channel must be provided")
     if any(ch < 0 for ch in normalized):
-        raise ValueError("Channels must be positive 1-based indices, or legacy 0-based indices")
+        raise ValueError(
+            "Channels must be positive 1-based indices, or legacy 0-based indices"
+        )
     if any(ch == 0 for ch in normalized):
         return [ch + 1 for ch in normalized]
     return normalized
@@ -706,7 +715,7 @@ def _as_int_list(name: str, value: Sequence[int]) -> List[int]:
 
 
 def _normalize_time_range(
-    time_range: Optional[Tuple[float, float]]
+    time_range: Optional[Tuple[float, float]],
 ) -> Optional[Tuple[float, float]]:
     if time_range is None:
         return None
@@ -734,7 +743,7 @@ def _resolve_input_format(
 
 
 def _normalize_sampling_rate(
-    sampling_rate: Optional[Union[int, float, Sequence[Union[int, float]]]]
+    sampling_rate: Optional[Union[int, float, Sequence[Union[int, float]]]],
 ) -> SamplingRate:
     if sampling_rate is None:
         return None

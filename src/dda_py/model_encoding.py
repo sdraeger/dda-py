@@ -26,8 +26,9 @@ Example:
     Model encoding [1, 2, 10] represents: dx/dt = a_1 x(t-tau_1) + a_2 x(t-tau_2) + a_3 x(t-tau_1)^4
 """
 
-from typing import List, Tuple, Generator, Sequence
+import sys
 from collections import Counter
+from typing import Generator, List, Sequence, Tuple
 
 
 def _non_decreasing_tuples(
@@ -78,7 +79,8 @@ def generate_monomials(num_delays: int, polynomial_order: int) -> List[Tuple[int
     """
     all_zeros = (0,) * polynomial_order
     return [
-        t for t in _non_decreasing_tuples(polynomial_order, 0, num_delays)
+        t
+        for t in _non_decreasing_tuples(polynomial_order, 0, num_delays)
         if t != all_zeros
     ]
 
@@ -98,9 +100,7 @@ def model_matrix_to_encoding(
     if num_delays <= 0:
         raise ValueError(f"num_delays must be positive, got {num_delays}")
     if polynomial_order <= 0:
-        raise ValueError(
-            f"polynomial_order must be positive, got {polynomial_order}"
-        )
+        raise ValueError(f"polynomial_order must be positive, got {polynomial_order}")
 
     rows = [tuple(int(value) for value in row) for row in model_matrix]
     if not rows:
@@ -241,7 +241,7 @@ def decode_model_encoding(
     num_delays: int,
     polynomial_order: int,
     tau_values: List[float] = None,
-    format: str = "latex"
+    format: str = "latex",
 ) -> str:
     """Decode a MODEL parameter into its DDE representation.
 
@@ -295,7 +295,7 @@ def visualize_model_space(
     num_delays: int,
     polynomial_order: int,
     tau_values: List[float] = None,
-    highlight_encoding: List[int] = None
+    highlight_encoding: List[int] = None,
 ) -> str:
     """Visualize the complete model space with all available monomials.
 
@@ -325,14 +325,14 @@ def visualize_model_space(
 
     header_parts = [f"Model Space: {num_delays} delays, order {polynomial_order}"]
     if tau_values:
-        tau_str = ", ".join(f"τ_{i+1}={v}" for i, v in enumerate(tau_values))
+        tau_str = ", ".join(f"τ_{i + 1}={v}" for i, v in enumerate(tau_values))
         header_parts.append(f"Delays: {tau_str}")
     header_parts.append(f"Total monomials: {len(monomials)}")
 
     lines = header_parts + [
         "",
         "Index | Encoding    | Term",
-        "------|-------------|---------------------"
+        "------|-------------|---------------------",
     ]
 
     highlight_set = set(highlight_encoding) if highlight_encoding else set()
@@ -345,17 +345,19 @@ def visualize_model_space(
         lines.append(f"{marker}{idx:4d} | {encoding_str:11s} | {term_str}")
 
     if highlight_encoding:
-        lines.extend([
-            "",
-            f"Selected terms (marked with *): {highlight_encoding}",
-            decode_model_encoding(
-                highlight_encoding,
-                num_delays,
-                polynomial_order,
-                tau_values,
-                format="text"
-            )
-        ])
+        lines.extend(
+            [
+                "",
+                f"Selected terms (marked with *): {highlight_encoding}",
+                decode_model_encoding(
+                    highlight_encoding,
+                    num_delays,
+                    polynomial_order,
+                    tau_values,
+                    format="text",
+                ),
+            ]
+        )
 
     return "\n".join(lines)
 
@@ -364,7 +366,7 @@ def model_encoding_to_dict(
     model_encoding: List[int],
     num_delays: int,
     polynomial_order: int,
-    tau_values: List[float] = None
+    tau_values: List[float] = None,
 ) -> dict:
     """Convert model encoding to structured dictionary representation.
 
@@ -392,34 +394,36 @@ def model_encoding_to_dict(
 
         monomial = monomials[monomial_idx - 1]
 
-        terms.append({
-            'coefficient': f'a_{coeff_idx}',
-            'monomial_index': monomial_idx,
-            'monomial': list(monomial),
-            'term_text': monomial_to_text(monomial, tau_values),
-            'term_latex': monomial_to_latex(monomial, tau_values)
-        })
+        terms.append(
+            {
+                "coefficient": f"a_{coeff_idx}",
+                "monomial_index": monomial_idx,
+                "monomial": list(monomial),
+                "term_text": monomial_to_text(monomial, tau_values),
+                "term_latex": monomial_to_latex(monomial, tau_values),
+            }
+        )
 
     return {
-        'equation_latex': decode_model_encoding(
+        "equation_latex": decode_model_encoding(
             model_encoding, num_delays, polynomial_order, tau_values, format="latex"
         ),
-        'equation_text': decode_model_encoding(
+        "equation_text": decode_model_encoding(
             model_encoding, num_delays, polynomial_order, tau_values, format="text"
         ),
-        'num_delays': num_delays,
-        'polynomial_order': polynomial_order,
-        'tau_values': tau_values,
-        'num_terms': len(terms),
-        'terms': terms
+        "num_delays": num_delays,
+        "polynomial_order": polynomial_order,
+        "tau_values": tau_values,
+        "num_terms": len(terms),
+        "terms": terms,
     }
 
 
 if __name__ == "__main__":
-    import sys
-
     if len(sys.argv) < 3:
-        print("Usage: python -m dda_py.model_encoding <num_delays> <polynomial_order> [model_encoding...]")
+        print(
+            "Usage: python -m dda_py.model_encoding <num_delays> <polynomial_order> [model_encoding...]"
+        )
         print("\nExample:")
         print("  python -m dda_py.model_encoding 2 2")
         print("  python -m dda_py.model_encoding 2 4 1 2 10")
@@ -430,6 +434,8 @@ if __name__ == "__main__":
 
     if len(sys.argv) > 3:
         model_enc = [int(x) for x in sys.argv[3:]]
-        print(visualize_model_space(num_delays, poly_order, highlight_encoding=model_enc))
+        print(
+            visualize_model_space(num_delays, poly_order, highlight_encoding=model_enc)
+        )
     else:
         print(visualize_model_space(num_delays, poly_order))

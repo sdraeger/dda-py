@@ -3,13 +3,14 @@ Tests for model_encoding module
 """
 
 import pytest
+
 from dda_py.model_encoding import (
-    generate_monomials,
-    monomial_to_text,
-    monomial_to_latex,
     decode_model_encoding,
-    visualize_model_space,
+    generate_monomials,
     model_encoding_to_dict,
+    monomial_to_latex,
+    monomial_to_text,
+    visualize_model_space,
 )
 
 
@@ -37,8 +38,15 @@ class TestMonomialGeneration:
         monomials = generate_monomials(num_delays=3, polynomial_order=2)
 
         expected = [
-            (0, 1), (0, 2), (0, 3),  # Linear terms
-            (1, 1), (1, 2), (1, 3), (2, 2), (2, 3), (3, 3),  # Quadratic terms
+            (0, 1),
+            (0, 2),
+            (0, 3),  # Linear terms
+            (1, 1),
+            (1, 2),
+            (1, 3),
+            (2, 2),
+            (2, 3),
+            (3, 3),  # Quadratic terms
         ]
 
         assert monomials == expected
@@ -49,9 +57,15 @@ class TestMonomialGeneration:
         monomials = generate_monomials(num_delays=2, polynomial_order=3)
 
         expected = [
-            (0, 0, 1), (0, 0, 2),  # Degree 1 (2 zero-pads)
-            (0, 1, 1), (0, 1, 2), (0, 2, 2),  # Degree 2 (1 zero-pad)
-            (1, 1, 1), (1, 1, 2), (1, 2, 2), (2, 2, 2),  # Degree 3
+            (0, 0, 1),
+            (0, 0, 2),  # Degree 1 (2 zero-pads)
+            (0, 1, 1),
+            (0, 1, 2),
+            (0, 2, 2),  # Degree 2 (1 zero-pad)
+            (1, 1, 1),
+            (1, 1, 2),
+            (1, 2, 2),
+            (2, 2, 2),  # Degree 3
         ]
 
         assert monomials == expected
@@ -135,7 +149,9 @@ class TestMonomialToText:
         """Test formatting with actual tau values"""
         assert monomial_to_text((0, 1), tau_values=[1.5, 2.0]) == "x(t - 1.5)"
         assert monomial_to_text((1, 1), tau_values=[1.5, 2.0]) == "x(t - 1.5)^2"
-        assert monomial_to_text((1, 2), tau_values=[1.5, 2.0]) == "x(t - 1.5) * x(t - 2.0)"
+        assert (
+            monomial_to_text((1, 2), tau_values=[1.5, 2.0]) == "x(t - 1.5) * x(t - 2.0)"
+        )
 
 
 class TestMonomialToLatex:
@@ -168,10 +184,7 @@ class TestDecodeModelEncoding:
     def test_user_example(self):
         """Test the exact example from user: [1 3 5] with 2 delays, order 2"""
         equation_text = decode_model_encoding(
-            model_encoding=[1, 3, 5],
-            num_delays=2,
-            polynomial_order=2,
-            format="text"
+            model_encoding=[1, 3, 5], num_delays=2, polynomial_order=2, format="text"
         )
 
         # Should produce: dx/dt = a_1 x_1 + a_2 x_1^2 + a_3 x_2^2
@@ -183,10 +196,7 @@ class TestDecodeModelEncoding:
     def test_user_example_latex(self):
         """Test LaTeX output for user's example"""
         equation_latex = decode_model_encoding(
-            model_encoding=[1, 3, 5],
-            num_delays=2,
-            polynomial_order=2,
-            format="latex"
+            model_encoding=[1, 3, 5], num_delays=2, polynomial_order=2, format="latex"
         )
 
         assert "\\dot{x}" in equation_latex
@@ -197,10 +207,7 @@ class TestDecodeModelEncoding:
     def test_default_model_order_four(self):
         """Test default model [1, 2, 10] with 2 delays, order 4"""
         equation_text = decode_model_encoding(
-            model_encoding=[1, 2, 10],
-            num_delays=2,
-            polynomial_order=4,
-            format="text"
+            model_encoding=[1, 2, 10], num_delays=2, polynomial_order=4, format="text"
         )
 
         # Index 1 -> (0,0,0,1) -> x_1
@@ -213,10 +220,7 @@ class TestDecodeModelEncoding:
     def test_all_linear_terms(self):
         """Test model with only linear terms"""
         equation_text = decode_model_encoding(
-            model_encoding=[1, 2],
-            num_delays=2,
-            polynomial_order=2,
-            format="text"
+            model_encoding=[1, 2], num_delays=2, polynomial_order=2, format="text"
         )
 
         assert "a_1 x_1" in equation_text
@@ -229,7 +233,7 @@ class TestDecodeModelEncoding:
             num_delays=2,
             polynomial_order=2,
             tau_values=[1.0, 2.0],
-            format="text"
+            format="text",
         )
 
         assert "x(t - 1.0)" in equation_text
@@ -239,10 +243,7 @@ class TestDecodeModelEncoding:
         """Test that invalid indices raise ValueError"""
         with pytest.raises(ValueError, match="Invalid model index"):
             decode_model_encoding(
-                model_encoding=[1, 99],
-                num_delays=2,
-                polynomial_order=2,
-                format="text"
+                model_encoding=[1, 99], num_delays=2, polynomial_order=2, format="text"
             )
 
 
@@ -261,9 +262,7 @@ class TestVisualizeModelSpace:
     def test_with_highlighting(self):
         """Test visualization with highlighted terms"""
         output = visualize_model_space(
-            num_delays=2,
-            polynomial_order=2,
-            highlight_encoding=[1, 3, 5]
+            num_delays=2, polynomial_order=2, highlight_encoding=[1, 3, 5]
         )
 
         assert "Selected terms" in output
@@ -273,9 +272,7 @@ class TestVisualizeModelSpace:
     def test_with_tau_values(self):
         """Test visualization with tau values"""
         output = visualize_model_space(
-            num_delays=2,
-            polynomial_order=2,
-            tau_values=[1.5, 2.0]
+            num_delays=2, polynomial_order=2, tau_values=[1.5, 2.0]
         )
 
         assert "τ_1=1.5" in output
@@ -288,40 +285,36 @@ class TestModelEncodingToDict:
     def test_basic_dict_structure(self):
         """Test dictionary structure"""
         result = model_encoding_to_dict(
-            model_encoding=[1, 3, 5],
-            num_delays=2,
-            polynomial_order=2
+            model_encoding=[1, 3, 5], num_delays=2, polynomial_order=2
         )
 
-        assert 'equation_latex' in result
-        assert 'equation_text' in result
-        assert 'num_terms' in result
-        assert 'terms' in result
-        assert result['num_terms'] == 3
-        assert len(result['terms']) == 3
+        assert "equation_latex" in result
+        assert "equation_text" in result
+        assert "num_terms" in result
+        assert "terms" in result
+        assert result["num_terms"] == 3
+        assert len(result["terms"]) == 3
 
     def test_term_details(self):
         """Test individual term details"""
         result = model_encoding_to_dict(
-            model_encoding=[1, 3, 5],
-            num_delays=2,
-            polynomial_order=2
+            model_encoding=[1, 3, 5], num_delays=2, polynomial_order=2
         )
 
         # First term: a_1 x_1
-        assert result['terms'][0]['coefficient'] == 'a_1'
-        assert result['terms'][0]['monomial'] == [0, 1]
-        assert result['terms'][0]['term_text'] == 'x_1'
+        assert result["terms"][0]["coefficient"] == "a_1"
+        assert result["terms"][0]["monomial"] == [0, 1]
+        assert result["terms"][0]["term_text"] == "x_1"
 
         # Second term: a_2 x_1^2
-        assert result['terms'][1]['coefficient'] == 'a_2'
-        assert result['terms'][1]['monomial'] == [1, 1]
-        assert result['terms'][1]['term_text'] == 'x_1^2'
+        assert result["terms"][1]["coefficient"] == "a_2"
+        assert result["terms"][1]["monomial"] == [1, 1]
+        assert result["terms"][1]["term_text"] == "x_1^2"
 
         # Third term: a_3 x_2^2
-        assert result['terms'][2]['coefficient'] == 'a_3'
-        assert result['terms'][2]['monomial'] == [2, 2]
-        assert result['terms'][2]['term_text'] == 'x_2^2'
+        assert result["terms"][2]["coefficient"] == "a_3"
+        assert result["terms"][2]["monomial"] == [2, 2]
+        assert result["terms"][2]["term_text"] == "x_2^2"
 
 
 class TestEdgeCases:
