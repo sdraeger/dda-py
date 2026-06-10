@@ -2,12 +2,12 @@
 
 import os
 
+os.environ.setdefault("MPLBACKEND", "Agg")
+
 import numpy as np
 import pytest
 
 from dda_py.results import CTResult, DEResult, STResult
-
-os.environ.setdefault("MPLBACKEND", "Agg")
 
 
 @pytest.fixture
