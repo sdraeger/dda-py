@@ -1,5 +1,7 @@
 # dda-py
 
+[![PyPI](https://img.shields.io/pypi/v/dda-py.svg)](https://pypi.org/project/dda-py/)
+
 Python bindings for DDA (Delay Differential Analysis).
 
 The [DDA binary](https://snl.salk.edu/~sfdraeger/dda/) is required. Please download the most recent version from the file server.
