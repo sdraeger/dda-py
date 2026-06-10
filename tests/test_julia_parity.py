@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import numpy as np
@@ -11,6 +12,10 @@ def _touch(path: Path) -> None:
     path.write_text("", encoding="utf-8")
 
 
+def _expected_command_prefix(binary: Path) -> str:
+    return str(binary) if os.name == "nt" else f"sh {binary}"
+
+
 def test_default_command_matches_julia_shape(tmp_path):
     binary = tmp_path / "run_DDA_AsciiEdf"
     _touch(binary)
@@ -20,7 +25,7 @@ def test_default_command_matches_julia_shape(tmp_path):
     command = build_command_string(runner, request, "/tmp/default_out")
 
     assert command == (
-        f"sh {binary} -EDF -DATA_FN test.edf -OUT_FN /tmp/default_out "
+        f"{_expected_command_prefix(binary)} -EDF -DATA_FN test.edf -OUT_FN /tmp/default_out "
         "-CH_list 1 -SELECT 1 0 0 0 0 0 -MODEL 1 2 10 -TAU 7 10 "
         "-dm 3 -order 4 -nr_tau 2"
     )
@@ -62,7 +67,7 @@ def test_model_matrix_select_format_sampling_and_passthrough_command(tmp_path):
     assert request.variants == ["ST", "CT"]
     assert request.model_terms == [1, 2, 6]
     assert command == (
-        f"sh {binary} -ASCII -DATA_FN test.custom -OUT_FN test.DDA "
+        f"{_expected_command_prefix(binary)} -ASCII -DATA_FN test.custom -OUT_FN test.DDA "
         "-CH_list 1 2 1 4 -SELECT 1 1 0 0 0 0 -MODEL 1 2 6 "
         "-TAU 32 9 -WL 3000 -WS 200 -dm 4 -order 3 -nr_tau 2 "
         "-WL_CT 2 -WS_CT 2 -StartEnd 0 4000 -SR 500 1000 "
@@ -87,6 +92,7 @@ def test_sampling_rate_scalar_tuple_and_validation(tmp_path):
         DDARequest("test.edf", [1], flavors=["ST"], sampling_rate=500.5)
 
 
+@pytest.mark.skipif(os.name == "nt", reason="uses a POSIX shell-script fake binary")
 def test_run_DDA_repairs_empty_info_and_parses_mixed_st_ct(tmp_path):
     binary = tmp_path / "fake_dda.sh"
     input_file = tmp_path / "input.ascii"
