@@ -56,6 +56,11 @@ from .stats import (
     compute_effect_size,
     permutation_test,
 )
+from .structure_selection import (
+    StructureSelectionResult,
+    StructureSelectionTrial,
+    structure_selection,
+)
 from .variants import (
     BINARY_NAME,
     CD,
@@ -158,6 +163,10 @@ __all__ = [
     "permutation_test",
     "compare_windows",
     "compute_effect_size",
+    # Structure selection
+    "StructureSelectionTrial",
+    "StructureSelectionResult",
+    "structure_selection",
     # Plotting
     "plot_coefficients",
     "plot_errors",
@@ -170,4 +179,4 @@ __all__ = [
     "run_bids",
 ]
 
-__version__ = "0.4.3"
+__version__ = "0.4.4"

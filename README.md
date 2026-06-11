@@ -229,6 +229,33 @@ print(result.ST)
 print(result.CT)
 ```
 
+## Structure Selection
+
+`structure_selection` runs explicit candidate `-MODEL` and `-TAU` combinations
+through the same binary-facing API and returns the ST candidate with the lowest
+error.
+
+```python
+from dda_py import structure_selection
+
+selection = structure_selection(
+    file_path="data.ascii",
+    channels=[1, 2],
+    binary_path="/path/to/run_DDA_AsciiEdf",
+    candidate_models=[[1, 2, 6], [1, 2, 10]],
+    candidate_delays=[[7, 10], [10, 20]],
+    derivative_points=4,
+    order=3,
+    WL=3000,
+    WS=200,
+    input_format="ascii",
+)
+
+print(selection.best_model)
+print(selection.best_delays)
+print(selection.best_score)
+```
+
 ## Model Encoding
 
 Visualize what DDA model indices mean:
